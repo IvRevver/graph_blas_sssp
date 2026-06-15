@@ -366,15 +366,21 @@ int main(void) {
     printf("\n+--------------------------------------------------------------+\n");
     printf("|                         TEST RESULTS                          |\n");
     printf("+--------------------------------------------------------------+\n");
-    printf("| Total: %-56d |\n", test_stats.total);
-    printf("| Passed: %-55d |\n", test_stats.passed);
-    printf("| Failed: %-55d |\n", test_stats.failed);
+    {
+        char line[64];
+        snprintf(line, sizeof(line), "Total: %d", test_stats.total);
+        printf("| %-60s |\n", line);
+        snprintf(line, sizeof(line), "Passed: %d", test_stats.passed);
+        printf("| %-60s |\n", line);
+        snprintf(line, sizeof(line), "Failed: %d", test_stats.failed);
+        printf("| %-60s |\n", line);
+    }
     printf("+--------------------------------------------------------------+\n");
     
     if (test_stats.failed == 0) {
-        printf("| Status: ALL TESTS PASSED                                    |\n");
+        printf("| %-60s |\n", "Status: ALL TESTS PASSED");
     } else {
-        printf("| Status: SOME TESTS FAILED                                    |\n");
+        printf("| %-60s |\n", "Status: SOME TESTS FAILED");
     }
     
     printf("+--------------------------------------------------------------+\n");
