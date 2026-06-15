@@ -1,5 +1,5 @@
 # SSSP GraphBLAS
-[![Build & Test](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml/badge.svg)](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml)
+[![Build & Test](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## О проекте
