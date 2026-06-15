@@ -50,8 +50,8 @@ static void print_benchmark_header(const GraphInfo *graph_info,
     printf("║           SSSP GraphBLAS Benchmark v%-16s            ║\n", VERSION);
     printf("╠════════════════════════════════════════════════════════════════╣\n");
     printf("║  Граф: %-58s  ║\n", graph_info->name);
-    printf("║  Вершин: %-10lu  Рёбер: %-10lu  Источник: %-6lu            ║\n", 
-           graph_info->nverts, graph_info->nedges, source);
+    printf("║  Вершин: %-10llu  Рёбер: %-10llu  Источник: %-6llu            ║\n", 
+           (unsigned long long)graph_info->nverts, (unsigned long long)graph_info->nedges, (unsigned long long)source);
     printf("║  Delta: %-59.2f  ║\n", delta);
     printf("╚════════════════════════════════════════════════════════════════╝\n");
 }
@@ -66,14 +66,13 @@ static void print_results(SSSP_Result results[], int count) {
     printf("╠═════════════════════════════════╪══════════════╪══════════════╣\n");
     
     for (int i = 0; i < count; i++) {
-        char status[12];
+        char status[20];
         
         if (results[i].success) {
-            strncpy(status, "✅ Успех", sizeof(status) - 1);
+            snprintf(status, sizeof(status), "%s", "✅ Успех");
         } else {
-            strncpy(status, "❌ Ошибка", sizeof(status) - 1);
+            snprintf(status, sizeof(status), "%s", "❌ Ошибка");
         }
-        status[sizeof(status) - 1] = '\0';
         
         double time_ms = results[i].success ? results[i].time_ms : 0.0;
         
@@ -95,10 +94,10 @@ static void print_algorithm_stats(const SSSP_Result *result) {
     printf("      ✅ Успех: %.2f мс", result->time_ms);
     
     if (result->iterations > 0) {
-        printf(", итераций: %.0f", result->iterations);
+        printf(", итераций: %d", result->iterations);
     }
     
-    printf(", достижимо: %lu", result->reachable_vertices);
+    printf(", достижимо: %llu", (unsigned long long)result->reachable_vertices);
     
     printf("\n");
 }
@@ -238,8 +237,8 @@ int main(int argc, char *argv[]) {
     }
     
     if (source >= graph_info.nverts) {
-        fprintf(stderr, "❌ Исходная вершина %lu вне диапазона [0, %lu)\n", 
-                source, graph_info.nverts);
+        fprintf(stderr, "❌ Исходная вершина %llu вне диапазона [0, %llu)\n", 
+                (unsigned long long)source, (unsigned long long)graph_info.nverts);
         LAGraph_Delete(&graph, msg);
         LAGraph_Finalize(msg);
         return 1;

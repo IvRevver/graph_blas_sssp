@@ -123,6 +123,7 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph,
     result->vertices_processed = n;
     
     GrB_Vector visited = NULL;
+    GrB_Monoid min_monoid = NULL;
     GrB_Semiring minplus_semiring = NULL;
     PriorityQueue *pq = NULL;
     GrB_Info info;
@@ -147,18 +148,20 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph,
         GrB_Vector_setElement(visited, false, i);
     }
     
-    info = GrB_Semiring_new(&minplus_semiring, GrB_MIN_FP64, GrB_PLUS_FP64, GrB_FP64);
+    info = GrB_Monoid_new(&min_monoid, GrB_MIN_FP64, (double)INFINITY);
+    if (info != GrB_SUCCESS) goto cleanup;
+
+    info = GrB_Semiring_new(&minplus_semiring, min_monoid, GrB_PLUS_FP64);
     if (info != GrB_SUCCESS) goto cleanup;
     
     pq = pq_create(n);
     if (!pq) {
-        info = GrB_NO_MEMORY;
+        info = GrB_OUT_OF_MEMORY;
         goto cleanup;
     }
     
     pq_push(pq, source, 0.0);
     
-    GrB_Index visited_count = 0;
     result->iterations = 0;
     
     /* Основной цикл Dijkstra */
@@ -178,12 +181,18 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph,
         
         result->iterations++;
         
-        /* Маска для вершины u */
+        /* Маска для вершины u с текущим расстоянием */
         GrB_Vector u_mask = NULL;
-        info = GrB_Vector_new(&u_mask, GrB_BOOL, n);
+        info = GrB_Vector_new(&u_mask, GrB_FP64, n);
         if (info != GrB_SUCCESS) break;
         
-        info = GrB_Vector_setElement(u_mask, true, u);
+        double dist_u;
+        info = GrB_Vector_extractElement(&dist_u, result->distances, u);
+        if (info != GrB_SUCCESS) {
+            GrB_free(&u_mask);
+            break;
+        }
+        info = GrB_Vector_setElement(u_mask, dist_u, u);
         if (info != GrB_SUCCESS) {
             GrB_free(&u_mask);
             break;
@@ -228,6 +237,7 @@ cleanup:
     pq_free(pq);
     GrB_free(&visited);
     GrB_free(&minplus_semiring);
+    GrB_free(&min_monoid);
     
     return info;
 }

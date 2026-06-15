@@ -23,8 +23,8 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
     GrB_Matrix_nrows(&n, graph->A);
     result->vertices_processed = n;
     
+    GrB_Monoid min_monoid = NULL;
     GrB_Semiring minplus_semiring = NULL;
-    GrB_Matrix AT = NULL;
     GrB_Vector dtmp = NULL;
     GrB_Info info;
     
@@ -41,13 +41,10 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
     GrB_Vector_setElement(result->distances, 0.0, source);
     GrB_Vector_setElement(result->predecessors, source, source);
     
-    info = GrB_Semiring_new(&minplus_semiring, GrB_MIN_FP64, GrB_PLUS_FP64, GrB_FP64);
+    info = GrB_Monoid_new(&min_monoid, GrB_MIN_FP64, (double)INFINITY);
     if (info != GrB_SUCCESS) goto cleanup;
-    
-    info = GrB_Matrix_new(&AT, GrB_FP64, n, n);
-    if (info != GrB_SUCCESS) goto cleanup;
-    
-    info = GrB_transpose(AT, NULL, NULL, graph->A, NULL);
+
+    info = GrB_Semiring_new(&minplus_semiring, min_monoid, GrB_PLUS_FP64);
     if (info != GrB_SUCCESS) goto cleanup;
     
     info = GrB_Vector_new(&dtmp, GrB_FP64, n);
@@ -58,32 +55,26 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
     for (GrB_Index k = 1; k < n; k++) {
         result->iterations = k;
         
-        /* dtmp = d min.plus A (векторно-матричное умножение) */
-        info = GrB_assign(dtmp, NULL, NULL, result->distances, NULL);
-        if (info != GrB_SUCCESS) break;
-        
+        /* dtmp = distances ⊗ A (min-plus векторно-матричное умножение) */
         info = GrB_vxm(dtmp, NULL, NULL, minplus_semiring, 
-                       result->distances, AT, NULL);
+                       result->distances, graph->A, NULL);
         if (info != GrB_SUCCESS) break;
         
-        /* Проверка сходимости */
+        /* Проверка сходимости и копирование dtmp → distances */
         converged = true;
         for (GrB_Index i = 0; i < n; i++) {
-            double d1, d2;
-            GrB_Info info1 = GrB_Vector_extractElement(&d1, result->distances, i);
-            GrB_Info info2 = GrB_Vector_extractElement(&d2, dtmp, i);
+            double d_old, d_new;
+            GrB_Info info_old = GrB_Vector_extractElement(&d_old, result->distances, i);
+            GrB_Info info_new = GrB_Vector_extractElement(&d_new, dtmp, i);
             
-            if (info1 == GrB_SUCCESS && info2 == GrB_SUCCESS) {
-                if (d1 != d2) {
+            if (info_new == GrB_SUCCESS) {
+                /* dtmp has a value for this vertex — update distances */
+                GrB_Vector_setElement(result->distances, d_new, i);
+                if (info_old != GrB_SUCCESS || d_old != d_new) {
                     converged = false;
-                    break;
                 }
             }
         }
-        
-        /* d = dtmp */
-        info = GrB_assign(result->distances, NULL, NULL, dtmp, NULL);
-        if (info != GrB_SUCCESS) break;
         
         if (converged) {
             break;
@@ -92,12 +83,12 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
     
     GrB_Vector_nvals(&result->reachable_vertices, result->distances);
     result->success = true;
-    result->iterations = converged ? result->iterations : n - 1;
+    result->iterations = converged ? result->iterations : (int)(n - 1);
 
 cleanup:
     GrB_free(&dtmp);
-    GrB_free(&AT);
     GrB_free(&minplus_semiring);
+    GrB_free(&min_monoid);
     
     return info;
 }

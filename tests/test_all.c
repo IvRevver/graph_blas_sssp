@@ -17,7 +17,7 @@
 
 #define TEST_GRAPH_PATH "tests/test_graph.mtx"
 #define EPSILON 1e-6
-#define MAX_TESTS 20
+#define MAX_TESTS 64
 
 typedef struct {
     const char *name;      /** Название теста */
@@ -30,7 +30,7 @@ static struct {
     int passed;
     int failed;
     TestResult results[MAX_TESTS];
-} test_stats = {0, 0, 0, {0}};
+} test_stats = {0, 0, 0, {{0}}};
 
 static void register_test(const char *name, bool passed, const char *message) {
     if (test_stats.total >= MAX_TESTS) {
@@ -142,12 +142,12 @@ static void test_graph_loading(LAGraph_Graph graph, GraphInfo *info) {
     
     /* Проверка количества вершин */
     char msg[256];
-    snprintf(msg, sizeof(msg), "Ожидалось 6, получено %lu", info->nverts);
+    snprintf(msg, sizeof(msg), "Ожидалось 6, получено %llu", (unsigned long long)info->nverts);
     register_test("Количество вершин = 6", info->nverts == 6, 
                   info->nverts != 6 ? msg : NULL);
     
     /* Проверка количества рёбер */
-    snprintf(msg, sizeof(msg), "Ожидалось 10, получено %lu", info->nedges);
+    snprintf(msg, sizeof(msg), "Ожидалось 10, получено %llu", (unsigned long long)info->nedges);
     register_test("Количество рёбер = 10", info->nedges == 10,
                   info->nedges != 10 ? msg : NULL);
     
@@ -235,10 +235,10 @@ static void test_consistency(LAGraph_Graph graph, GrB_Index source) {
     SSSP_Result ref, alg;
     
     /* Algebraic BF как эталон */
-    algebraic_bf_graphblas(&ref, graph, source);
+    algebraic_bf_graphblas(&ref, graph, source, 0.0);
     
     /* Сравнение с Dijkstra */
-    dijkstra_graphblas(&alg, graph, source);
+    dijkstra_graphblas(&alg, graph, source, 0.0);
     register_test("Algebraic BF == Dijkstra",
                   compare_distances(ref.distances, alg.distances),
                   NULL);
@@ -251,7 +251,7 @@ static void test_validator(LAGraph_Graph graph, GrB_Index source) {
     printf("\n[Тест] Валидатор\n");
     
     SSSP_Result result;
-    algebraic_bf_graphblas(&result, graph, source);
+    algebraic_bf_graphblas(&result, graph, source, 0.0);
     
     /* Проверка полной валидации */
     register_test("sssp_validate_result passed",
@@ -269,7 +269,7 @@ static void test_validator(LAGraph_Graph graph, GrB_Index source) {
     
     /* Проверка сравнения векторов */
     SSSP_Result result2;
-    algebraic_bf_graphblas(&result2, graph, source);
+    algebraic_bf_graphblas(&result2, graph, source, 0.0);
     
     register_test("sssp_validate_distances (same)",
                   sssp_validate_distances(result.distances, result2.distances),
@@ -341,8 +341,8 @@ int main(void) {
     }
     
     printf("\nТестовый граф: %s\n", graph_info.name);
-    printf("  Вершин: %lu\n", graph_info.nverts);
-    printf("  Рёбер: %lu\n", graph_info.nedges);
+    printf("  Вершин: %llu\n", (unsigned long long)graph_info.nverts);
+    printf("  Рёбер: %llu\n", (unsigned long long)graph_info.nedges);
     
     GrB_Index source = 0;
     

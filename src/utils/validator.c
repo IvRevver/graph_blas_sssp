@@ -187,8 +187,8 @@ void sssp_print_validation_report(SSSP_Result *result,
     
     /* Статистика */
     fprintf(stream, "  Время выполнения: %.2f мс\n", result->time_ms);
-    fprintf(stream, "  Итераций: %.0f\n", result->iterations);
-    fprintf(stream, "  Достижимо вершин: %lu\n", result->reachable_vertices);
+    fprintf(stream, "  Итераций: %d\n", result->iterations);
+    fprintf(stream, "  Достижимо вершин: %llu\n", (unsigned long long)result->reachable_vertices);
     
     /* Проверки */
     fprintf(stream, "\n  Проверки:\n");

@@ -95,8 +95,6 @@ static bool validate_mm_header(const char *line) {
     bool has_integer = (strstr(line, "integer") != NULL);
     
     /* Структура матрицы */
-    bool has_general = (strstr(line, "general") != NULL);
-    bool has_symmetric = (strstr(line, "symmetric") != NULL);
     
     if (!has_matrix_market || !has_matrix || !has_coordinate) {
         return false;
@@ -189,18 +187,18 @@ static GrB_Info parse_dimensions(const char *line,
  * @brief Построить матрицу смежности из координат
  * 
  * @param A Матрица для заполнения
- * @param I Массив индексов строк (0-индексированные)
- * @param J Массив индексов столбцов (0-индексированные)
- * @param X Массив значений (веса рёбер)
+ * @param rows Массив индексов строк (0-индексированные)
+ * @param cols Массив индексов столбцов (0-индексированные)
+ * @param vals Массив значений (веса рёбер)
  * @param nentries Количество элементов
  * @return GrB_SUCCESS если успешно
  */
 static GrB_Info build_adjacency_matrix(GrB_Matrix A,
-                                        GrB_Index *I,
-                                        GrB_Index *J,
-                                        double *X,
+                                        GrB_Index *rows,
+                                        GrB_Index *cols,
+                                        double *vals,
                                         GrB_Index nentries) {
-    if (!A || !I || !J || !X) {
+    if (!A || !rows || !cols || !vals) {
         return GrB_NULL_POINTER;
     }
     
@@ -209,7 +207,7 @@ static GrB_Info build_adjacency_matrix(GrB_Matrix A,
      * При наличии дубликатов используется GrB_PLUS_FP64 для суммирования
      * Источник: GraphBLAS Specification v2.0, Section 5.4 [2]
      */
-    GrB_Info info = GrB_Matrix_build(A, I, J, X, nentries, GrB_PLUS_FP64);
+    GrB_Info info = GrB_Matrix_build(A, rows, cols, vals, nentries, GrB_PLUS_FP64);
     
     return info;
 }
@@ -308,18 +306,18 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     /* ==========================================================================
      * Шаг 3: Выделение памяти для координат
      * ========================================================================== */
-    GrB_Index *I = malloc(sizeof(GrB_Index) * nentries);
-    GrB_Index *J = malloc(sizeof(GrB_Index) * nentries);
-    double *X = malloc(sizeof(double) * nentries);
+    GrB_Index *row_idx = malloc(sizeof(GrB_Index) * nentries);
+    GrB_Index *col_idx = malloc(sizeof(GrB_Index) * nentries);
+    double *weights = malloc(sizeof(double) * nentries);
     
-    if (!I || !J || !X) {
-        free(I);
-        free(J);
-        free(X);
+    if (!row_idx || !col_idx || !weights) {
+        free(row_idx);
+        free(col_idx);
+        free(weights);
         fclose(fp);
         fprintf(stderr, "❌ Не удалось выделить память (%lld рёбер)\n",
                 (long long)nentries);
-        return GrB_NO_MEMORY;
+        return GrB_OUT_OF_MEMORY;
     }
     
     /* ==========================================================================
@@ -358,9 +356,9 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
          * Конвертация 1-индексации Matrix Market в 0-индексацию GraphBLAS
          * Источник: Matrix Market Format Specification [1]
          */
-        I[idx] = row - 1;
-        J[idx] = col - 1;
-        X[idx] = value;
+        row_idx[idx] = row - 1;
+        col_idx[idx] = col - 1;
+        weights[idx] = value;
         idx++;
         
         /* 
@@ -368,9 +366,9 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
          * (кроме диагональных)
          */
         if (info->is_symmetric && row != col && idx < nentries) {
-            I[idx] = col - 1;
-            J[idx] = row - 1;
-            X[idx] = value;
+            row_idx[idx] = col - 1;
+            col_idx[idx] = row - 1;
+            weights[idx] = value;
             idx++;
         }
     }
@@ -379,9 +377,9 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     
     /* Проверка количества прочитанных элементов */
     if (idx == 0) {
-        free(I);
-        free(J);
-        free(X);
+        free(row_idx);
+        free(col_idx);
+        free(weights);
         fprintf(stderr, "❌ Не удалось прочитать ни одного ребра\n");
         return GrB_INVALID_VALUE;
     }
@@ -395,19 +393,19 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     GrB_Matrix A = NULL;
     info_grb = GrB_Matrix_new(&A, GrB_FP64, nrows, ncols);
     if (info_grb != GrB_SUCCESS) {
-        free(I);
-        free(J);
-        free(X);
+        free(row_idx);
+        free(col_idx);
+        free(weights);
         fprintf(stderr, "❌ Не удалось создать матрицу GraphBLAS\n");
         return info_grb;
     }
     
-    info_grb = build_adjacency_matrix(A, I, J, X, idx);
+    info_grb = build_adjacency_matrix(A, row_idx, col_idx, weights, idx);
     
     /* Освобождение временной памяти */
-    free(I);
-    free(J);
-    free(X);
+    free(row_idx);
+    free(col_idx);
+    free(weights);
     
     if (info_grb != GrB_SUCCESS) {
         GrB_free(&A);
@@ -431,8 +429,8 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
      * Шаг 7: Вывод информации о загруженном графе
      * ========================================================================== */
     fprintf(stderr, "📁 Загружен граф: %s\n", info->name);
-    fprintf(stderr, "   Вершин: %'lu\n", info->nverts);
-    fprintf(stderr, "   Рёбер: %'lu\n", info->nedges);
+    fprintf(stderr, "   Вершин: %'llu\n", (unsigned long long)info->nverts);
+    fprintf(stderr, "   Рёбер: %'llu\n", (unsigned long long)info->nedges);
     fprintf(stderr, "   Ориентированный: %s\n", info->directed ? "Да" : "Нет");
     fprintf(stderr, "   Взвешенный: %s\n", info->has_weights ? "Да" : "Нет");
     

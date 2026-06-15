@@ -56,22 +56,30 @@ DEBUG_CFLAGS = $(CSTD) -g -Wall -Wextra -fopenmp -DDEBUG
 # Источник: GNU gprof Documentation [10]
 PROFILE_CFLAGS = $(CSTD) -O3 -Wall -Wextra -fopenmp -pg
 
-# Пути для заголовочных файлов
-# Isrc: Исходный код проекта
-# /usr/local/include: Системные заголовки (GraphBLAS, LAGraph)
-INCLUDES = -Isrc -I/usr/local/include
+# Определение платформы (MSYS2 / native Linux)
+ifneq ($(MSYSTEM),)
+  # MSYS2 / MinGW64 окружение
+  INCLUDES = -Isrc -I/mingw64/include/suitesparse
+  LIBPATHS = -L/mingw64/lib
+else
+  # Linux / нативная сборка
+  # Пробуем pkg-config, иначе /usr/local
+  PKG_CHECK = $(shell pkg-config --cflags --libs suitesparse 2>/dev/null)
+  ifneq ($(PKG_CHECK),)
+    INCLUDES = -Isrc $(shell pkg-config --cflags-only-I suitesparse 2>/dev/null)
+    LIBPATHS = $(shell pkg-config --libs-only-L suitesparse 2>/dev/null)
+  else
+    INCLUDES = -Isrc -I/usr/local/include
+    LIBPATHS = -L/usr/local/lib
+  endif
+endif
 
 # Флаги линковки
 # -lgraphblas: SuiteSparse GraphBLAS
 # -llagraph: LAGraph
 # -lm: Математическая библиотека (требуется для math.h функций)
 # -fopenmp: OpenMP для параллелизма
-# Источник: GraphBLAS Installation Guide [5]
 LDFLAGS = -lgraphblas -llagraph -lm -fopenmp
-
-# Пути для библиотек
-# /usr/local/lib: Стандартный путь для установленных библиотек
-LIBPATHS = -L/usr/local/lib
 
 # ==============================================================================
 # Директории
@@ -131,8 +139,9 @@ HEADERS = $(SRCDIR)/algorithms/sssp_common.h \
 # Объектные файлы для основной сборки
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(MAIN_SOURCES))
 
-# Объектные файлы для тестов
-TEST_OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(filter-out $(SRCDIR)/main.c,$(TEST_SOURCES))) \
+# Объектные файлы для тестов (все файлы из TEST_SOURCES, кроме main.c, преобразованные в .o)
+TEST_SRC_FILTERED = $(filter-out $(SRCDIR)/main.c $(TESTDIR)/test_all.c, $(TEST_SOURCES))
+TEST_OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(TEST_SRC_FILTERED)) \
                $(OBJDIR)/test_all.o
 
 # ==============================================================================
@@ -271,15 +280,27 @@ distclean: clean
 
 .PHONY: install
 install: $(TARGET)
+ifneq ($(MSYSTEM),)
+	@echo "📦 Установка $(TARGET) в /mingw64/bin..."
+	install -m 755 $(TARGET) /mingw64/bin/
+	@echo "✅ Установка завершена"
+else
 	@echo "📦 Установка $(TARGET) в /usr/local/bin..."
 	sudo install -m 755 $(TARGET) /usr/local/bin/
 	@echo "✅ Установка завершена"
+endif
 
 .PHONY: uninstall
 uninstall:
+ifneq ($(MSYSTEM),)
+	@echo "🗑️  Удаление из /mingw64/bin..."
+	rm -f /mingw64/bin/sssp_benchmark
+	@echo "✅ Удаление завершено"
+else
 	@echo "🗑️  Удаление из /usr/local/bin..."
 	sudo rm -f /usr/local/bin/sssp_benchmark
 	@echo "✅ Удаление завершено"
+endif
 
 # ==============================================================================
 # Документация
@@ -308,13 +329,35 @@ check-deps:
 	else \
 		echo "❌ Компилятор $(CC) не найден"; \
 	fi
-	@# Проверка GraphBLAS
+ifneq ($(MSYSTEM),)
+	@# MSYS2: проверка в /mingw64
+	@if [ -f /mingw64/include/suitesparse/GraphBLAS.h ]; then \
+		echo "✅ GraphBLAS: заголовочные файлы найдены"; \
+	else \
+		echo "⚠️  GraphBLAS: заголовочные файлы не найдены"; \
+	fi
+	@if [ -f /mingw64/include/suitesparse/LAGraph.h ]; then \
+		echo "✅ LAGraph: заголовочные файлы найдены"; \
+	else \
+		echo "⚠️  LAGraph: заголовочные файлы не найдены"; \
+	fi
+	@if [ -f /mingw64/lib/libgraphblas.dll.a ]; then \
+		echo "✅ libgraphblas: библиотека найдена"; \
+	else \
+		echo "⚠️  libgraphblas: библиотека не найдена"; \
+	fi
+	@if [ -f /mingw64/lib/liblagraph.dll.a ]; then \
+		echo "✅ liblagraph: библиотека найдена"; \
+	else \
+		echo "⚠️  liblagraph: библиотека не найдена"; \
+	fi
+else
+	@# Linux: проверка в /usr/local
 	@if [ -f /usr/local/include/GraphBLAS.h ]; then \
 		echo "✅ GraphBLAS: заголовочные файлы найдены"; \
 	else \
 		echo "⚠️  GraphBLAS: заголовочные файлы не найдены в /usr/local/include"; \
 	fi
-	@# Проверка LAGraph
 	@if [ -f /usr/local/include/LAGraph.h ]; then \
 		echo "✅ LAGraph: заголовочные файлы найдены"; \
 	else \
@@ -331,6 +374,7 @@ check-deps:
 	else \
 		echo "⚠️  liblagraph: библиотека не найдена"; \
 	fi
+endif
 	@echo ""
 
 # ==============================================================================
