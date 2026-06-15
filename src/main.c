@@ -46,13 +46,20 @@ static void print_usage(const char *prog) {
 static void print_benchmark_header(const GraphInfo *graph_info, 
                                    GrB_Index source, 
                                    double delta) {
+    char line[256];
     printf("+--------------------------------------------------------------+\n");
-    printf("| SSSP GraphBLAS Benchmark v%-39s |\n", VERSION);
+    snprintf(line, sizeof(line), "SSSP GraphBLAS Benchmark v%s", VERSION);
+    printf("| %-60s |\n", line);
     printf("|--------------------------------------------------------------|\n");
-    printf("| Graph: %-57s |\n", graph_info->name);
-    printf("| Vertices: %-10llu  Edges: %-10llu  Source: %-6llu              |\n", 
-           (unsigned long long)graph_info->nverts, (unsigned long long)graph_info->nedges, (unsigned long long)source);
-    printf("| Delta: %-59.2f |\n", delta);
+    snprintf(line, sizeof(line), "Graph: %.248s", graph_info->name);
+    printf("| %-60s |\n", line);
+    snprintf(line, sizeof(line), "Vertices: %llu  Edges: %llu  Source: %llu", 
+             (unsigned long long)graph_info->nverts,
+             (unsigned long long)graph_info->nedges,
+             (unsigned long long)source);
+    printf("| %-60s |\n", line);
+    snprintf(line, sizeof(line), "Delta: %.2f", delta);
+    printf("| %-60s |\n", line);
     printf("+--------------------------------------------------------------+\n");
 }
 
@@ -60,9 +67,9 @@ static void print_benchmark_header(const GraphInfo *graph_info,
 static void print_results(SSSP_Result results[], int count) {
     printf("\n");
     printf("+--------------------------------------------------------------+\n");
-    printf("|                      BENCHMARK RESULTS                        |\n");
+    printf("| %-60s |\n", "BENCHMARK RESULTS");
     printf("+----------------------------+--------------+------------------+\n");
-    printf("| Algorithm                    | Time (ms)    | Status           |\n");
+    printf("| %-26s | %-12s | %-16s |\n", "Algorithm", "Time (ms)", "Status");
     printf("+----------------------------+--------------+------------------+\n");
     
     for (int i = 0; i < count; i++) {
@@ -76,7 +83,7 @@ static void print_results(SSSP_Result results[], int count) {
         
         double time_ms = results[i].success ? results[i].time_ms : 0.0;
         
-        printf("| %-28s | %12.2f | %-16s |\n", 
+        printf("| %-26s | %12.2f | %-16s |\n", 
                results[i].name, 
                time_ms, 
                status);
@@ -159,13 +166,14 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
     double best_time = results[best_idx].time_ms;
     
     if (best_time <= 0) {
-        return;  /* Защита от деления на ноль */
+        return;
     }
     
+    char line[256];
     printf("\n");
     printf("+--------------------------------------------------------------+\n");
-    printf("| Speedup (vs %s):              |\n", 
-           results[best_idx].name);
+            snprintf(line, sizeof(line), "Speedup (vs %.63s)", results[best_idx].name);
+    printf("| %-60s |\n", line);
     printf("+----------------------------+---------------------------------+\n");
     
     for (int i = 0; i < count; i++) {
@@ -175,13 +183,15 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
         
         double speedup = results[i].time_ms / best_time;
         
+    char line[256];
         if (i == best_idx) {
-            printf("| %-28s | %8.2fx  (fastest)              |\n", 
-                   results[i].name, speedup);
+            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx  (fastest)", 
+                     results[i].name, "|", speedup);
         } else {
-            printf("| %-28s | %8.2fx                           |\n", 
-                   results[i].name, speedup);
+            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx", 
+                     results[i].name, "|", speedup);
         }
+        printf("| %-60s |\n", line);
     }
     
     printf("+--------------------------------------------------------------+\n");
@@ -247,24 +257,30 @@ int main(int argc, char *argv[]) {
     
     SSSP_Result results[MAX_ALGORITHMS];
     int count = 0;
-    
+    int step = 1;
 
-    printf("\n[1/3] LAGraph SSSP (Delta-Stepping)...\n");
-    fflush(stdout);
-    
-    timer_start();
-    info = lagraph_sssp(&results[count], graph, source, delta);
-    results[count].time_ms = timer_stop_ms();
-    
-    if (info == GrB_SUCCESS) {
-        print_algorithm_stats(&results[count]);
-        count++;
-    } else {
-        printf("      [FAIL] error: %d\n", info);
+    if (graph_info.has_negative_weights) {
+        printf("\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
+    }
+
+    if (!graph_info.has_negative_weights) {
+        printf("\n[%d/3] LAGraph SSSP (Delta-Stepping)...\n", step++);
+        fflush(stdout);
+        
+        timer_start();
+        info = lagraph_sssp(&results[count], graph, source, delta);
+        results[count].time_ms = timer_stop_ms();
+        
+        if (info == GrB_SUCCESS) {
+            print_algorithm_stats(&results[count]);
+            count++;
+        } else {
+            printf("      [FAIL] error: %d\n", info);
+        }
     }
     
 
-    printf("\n[2/3] Algebraic Bellman-Ford...\n");
+    printf("\n[%d/3] Algebraic Bellman-Ford...\n", step++);
     fflush(stdout);
     
     timer_start();
@@ -279,18 +295,20 @@ int main(int argc, char *argv[]) {
     }
     
 
-    printf("\n[3/3] Dijkstra...\n");
-    fflush(stdout);
-    
-    timer_start();
-    info = dijkstra_graphblas(&results[count], graph, source, 0.0);
-    results[count].time_ms = timer_stop_ms();
-    
-    if (info == GrB_SUCCESS) {
-        print_algorithm_stats(&results[count]);
-        count++;
-    } else {
-        printf("      [FAIL] error: %d\n", info);
+    if (!graph_info.has_negative_weights) {
+        printf("\n[%d/3] Dijkstra...\n", step++);
+        fflush(stdout);
+        
+        timer_start();
+        info = dijkstra_graphblas(&results[count], graph, source, 0.0);
+        results[count].time_ms = timer_stop_ms();
+        
+        if (info == GrB_SUCCESS) {
+            print_algorithm_stats(&results[count]);
+            count++;
+        } else {
+            printf("      [FAIL] error: %d\n", info);
+        }
     }
     
     print_results(results, count);
