@@ -1,5 +1,5 @@
 # SSSP GraphBLAS
-[![Build & Test](https://github.com/ivrevver/sssp-graphblas-benchmark/actions/workflows/build.yml/badge.svg)](https://github.com/yourusername/sssp-graphblas-benchmark/actions/workflows/build.yml)
+[![Build & Test](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml/badge.svg)](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## О проекте
@@ -50,7 +50,7 @@ bash scripts/install_deps.sh
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake git libopenmp-dev libsuitesparse-dev
+sudo apt-get install -y build-essential cmake git libsuitesparse-dev
 
 # GraphBLAS
 git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git /tmp/GraphBLAS

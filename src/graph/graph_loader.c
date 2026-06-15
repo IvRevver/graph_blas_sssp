@@ -387,6 +387,15 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     info->nedges = idx;
     info->has_weights = has_weights;
     
+    /* Проверка на отрицательные веса */
+    info->has_negative_weights = false;
+    for (GrB_Index i = 0; i < idx; i++) {
+        if (weights[i] < 0) {
+            info->has_negative_weights = true;
+            break;
+        }
+    }
+
     /* ==========================================================================
      * Шаг 5: Создание матрицы смежности GraphBLAS
      * ========================================================================== */
@@ -433,6 +442,9 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     fprintf(stdout, "       Edges: %llu\n", (unsigned long long)info->nedges);
     fprintf(stdout, "       Directed: %s\n", info->directed ? "Yes" : "No");
     fprintf(stdout, "       Weighted: %s\n", info->has_weights ? "Yes" : "No");
+    if (info->has_negative_weights) {
+        fprintf(stdout, "       Negative weights: Yes\n");
+    }
     
     return GrB_SUCCESS;
 }
