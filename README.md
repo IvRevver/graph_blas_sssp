@@ -50,7 +50,7 @@ bash scripts/install_deps.sh
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake git libopenmp-dev libsuitesparse-dev
+sudo apt-get install -y build-essential cmake git libsuitesparse-dev
 
 # GraphBLAS
 git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git /tmp/GraphBLAS
