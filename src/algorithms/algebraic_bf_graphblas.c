@@ -60,7 +60,7 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
                        result->distances, graph->A, NULL);
         if (info != GrB_SUCCESS) break;
         
-        /* Проверка сходимости и копирование dtmp → distances */
+        /* Проверка сходимости: обновляем только если расстояние уменьшилось */
         converged = true;
         for (GrB_Index i = 0; i < n; i++) {
             double d_old, d_new;
@@ -68,9 +68,8 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph,
             GrB_Info info_new = GrB_Vector_extractElement(&d_new, dtmp, i);
             
             if (info_new == GrB_SUCCESS) {
-                /* dtmp has a value for this vertex — update distances */
-                GrB_Vector_setElement(result->distances, d_new, i);
-                if (info_old != GrB_SUCCESS || d_old != d_new) {
+                if (info_old != GrB_SUCCESS || d_new < d_old) {
+                    GrB_Vector_setElement(result->distances, d_new, i);
                     converged = false;
                 }
             }
