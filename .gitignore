@@ -1,0 +1,20 @@
+# Build
+obj/
+bin/
+results/
+*.o
+*.obj
+
+# Profiling
+gmon.out
+profile.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
