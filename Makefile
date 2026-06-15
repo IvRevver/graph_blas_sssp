@@ -69,8 +69,8 @@ else
     INCLUDES = -Isrc $(shell pkg-config --cflags-only-I suitesparse 2>/dev/null)
     LIBPATHS = $(shell pkg-config --libs-only-L suitesparse 2>/dev/null)
   else
-    INCLUDES = -Isrc -I/usr/local/include
-    LIBPATHS = -L/usr/local/lib
+    INCLUDES = -Isrc -I/usr/local/include -I/usr/local/include/suitesparse
+    LIBPATHS = -L/usr/local/lib -L/usr/local/lib64
   endif
 endif
 
@@ -79,7 +79,7 @@ endif
 # -llagraph: LAGraph
 # -lm: Математическая библиотека (требуется для math.h функций)
 # -fopenmp: OpenMP для параллелизма
-LDFLAGS = -lgraphblas -llagraph -lm -fopenmp
+LDFLAGS = -lgraphblas -llagraph -lm -fopenmp -Wl,-rpath,/usr/local/lib64
 
 # ==============================================================================
 # Директории
