@@ -46,43 +46,43 @@ static void print_usage(const char *prog) {
 static void print_benchmark_header(const GraphInfo *graph_info, 
                                    GrB_Index source, 
                                    double delta) {
-    printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║           SSSP GraphBLAS Benchmark v%-16s            ║\n", VERSION);
-    printf("╠════════════════════════════════════════════════════════════════╣\n");
-    printf("║  Граф: %-58s  ║\n", graph_info->name);
-    printf("║  Вершин: %-10llu  Рёбер: %-10llu  Источник: %-6llu            ║\n", 
+    printf("+--------------------------------------------------------------+\n");
+    printf("| SSSP GraphBLAS Benchmark v%-39s |\n", VERSION);
+    printf("|--------------------------------------------------------------|\n");
+    printf("| Graph: %-57s |\n", graph_info->name);
+    printf("| Vertices: %-10llu  Edges: %-10llu  Source: %-6llu              |\n", 
            (unsigned long long)graph_info->nverts, (unsigned long long)graph_info->nedges, (unsigned long long)source);
-    printf("║  Delta: %-59.2f  ║\n", delta);
-    printf("╚════════════════════════════════════════════════════════════════╝\n");
+    printf("| Delta: %-59.2f |\n", delta);
+    printf("+--------------------------------------------------------------+\n");
 }
 
 
 static void print_results(SSSP_Result results[], int count) {
     printf("\n");
-    printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║                    РЕЗУЛЬТАТЫ БЕНЧМАРКА                        ║\n");
-    printf("╠════════════════════════════════════════════════════════════════╣\n");
-    printf("║  Алгоритм                      │  Время (мс)  │  Статус      ║\n");
-    printf("╠═════════════════════════════════╪══════════════╪══════════════╣\n");
+    printf("+--------------------------------------------------------------+\n");
+    printf("|                      BENCHMARK RESULTS                        |\n");
+    printf("+----------------------------+--------------+------------------+\n");
+    printf("| Algorithm                    | Time (ms)    | Status           |\n");
+    printf("+----------------------------+--------------+------------------+\n");
     
     for (int i = 0; i < count; i++) {
         char status[20];
         
         if (results[i].success) {
-            snprintf(status, sizeof(status), "%s", "✅ Успех");
+            snprintf(status, sizeof(status), "%s", "OK");
         } else {
-            snprintf(status, sizeof(status), "%s", "❌ Ошибка");
+            snprintf(status, sizeof(status), "%s", "FAIL");
         }
         
         double time_ms = results[i].success ? results[i].time_ms : 0.0;
         
-        printf("║  %-32s │  %10.2f  │  %-11s ║\n", 
+        printf("| %-28s | %12.2f | %-16s |\n", 
                results[i].name, 
                time_ms, 
                status);
     }
     
-    printf("╚════════════════════════════════════════════════════════════════╝\n");
+    printf("+--------------------------------------------------------------+\n");
 }
 
 
@@ -91,13 +91,13 @@ static void print_algorithm_stats(const SSSP_Result *result) {
         return;
     }
     
-    printf("      ✅ Успех: %.2f мс", result->time_ms);
+    printf("      [OK] %.2f ms", result->time_ms);
     
     if (result->iterations > 0) {
-        printf(", итераций: %d", result->iterations);
+        printf(", iters: %d", result->iterations);
     }
     
-    printf(", достижимо: %llu", (unsigned long long)result->reachable_vertices);
+    printf(", reachable: %llu", (unsigned long long)result->reachable_vertices);
     
     printf("\n");
 }
@@ -109,26 +109,25 @@ static bool validate_results(SSSP_Result results[], int count) {
     }
     
     printf("\n");
-    printf("════════════════════════════════════════════════════════════════\n");
-    printf("Валидация результатов:\n");
+    printf("===============================================================\n");
+    printf("Validation:\n");
     
     bool all_valid = true;
     
-    /* Используем первый алгоритм как эталон */
     SSSP_Result *reference = &results[0];
     
     for (int i = 1; i < count; i++) {
         if (!results[i].success) {
-            continue;  /* Пропустить неудачные */
+            continue;
         }
         
         bool match = sssp_validate_distances(reference->distances, 
                                              results[i].distances);
         
         if (match) {
-            printf("  ✅ %s совпадает с эталоном\n", results[i].name);
+            printf("  [OK] %s matches reference\n", results[i].name);
         } else {
-            printf("  ❌ %s НЕ совпадает с эталоном!\n", results[i].name);
+            printf("  [FAIL] %s does NOT match reference!\n", results[i].name);
             all_valid = false;
         }
     }
@@ -164,10 +163,10 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
     }
     
     printf("\n");
-    printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║  Ускорение (относительно %s):                           ║\n", 
+    printf("+--------------------------------------------------------------+\n");
+    printf("| Speedup (vs %s):              |\n", 
            results[best_idx].name);
-    printf("╠════════════════════════════════════════════════════════════════╣\n");
+    printf("+----------------------------+---------------------------------+\n");
     
     for (int i = 0; i < count; i++) {
         if (!results[i].success || results[i].time_ms <= 0) {
@@ -177,15 +176,15 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
         double speedup = results[i].time_ms / best_time;
         
         if (i == best_idx) {
-            printf("║  %-32s │  %8.2f×  (лучший)                      ║\n", 
+            printf("| %-28s | %8.2fx  (fastest)              |\n", 
                    results[i].name, speedup);
         } else {
-            printf("║  %-32s │  %8.2f×                                ║\n", 
+            printf("| %-28s | %8.2fx                           |\n", 
                    results[i].name, speedup);
         }
     }
     
-    printf("╚════════════════════════════════════════════════════════════════╝\n");
+    printf("+--------------------------------------------------------------+\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -204,7 +203,7 @@ int main(int argc, char *argv[]) {
         if (*endptr == '\0' && source_val >= 0) {
             source = (GrB_Index)source_val;
         } else {
-            fprintf(stderr, "⚠️  Некорректный источник: %s, используется 0\n", argv[2]);
+            fprintf(stderr, "[!] Invalid source: %s, using 0\n", argv[2]);
         }
     }
     
@@ -214,14 +213,14 @@ int main(int argc, char *argv[]) {
         if (*endptr == '\0' && delta_val > 0) {
             delta = delta_val;
         } else {
-            fprintf(stderr, "⚠️  Некорректная delta: %s, используется 3.0\n", argv[3]);
+            fprintf(stderr, "[!] Invalid delta: %s, using 3.0\n", argv[3]);
         }
     }
     
     char msg[LAGRAPH_MSG_LEN];
     GrB_Info info = LAGraph_Init(msg);
     if (info != GrB_SUCCESS) {
-        fprintf(stderr, "❌ LAGraph_Init failed: %d\n%s\n", info, msg);
+        fprintf(stderr, "[FAIL] LAGraph_Init failed: %d\n%s\n", info, msg);
         fprintf(stderr, "   Убедитесь, что GraphBLAS и LAGraph установлены\n");
         return 1;
     }
@@ -231,13 +230,13 @@ int main(int argc, char *argv[]) {
     
     info = graph_load(&graph, graph_file, &graph_info);
     if (info != GrB_SUCCESS) {
-        fprintf(stderr, "❌ Не удалось загрузить граф: %d\n", info);
+        fprintf(stderr, "[FAIL] Could not load graph: %d\n", info);
         LAGraph_Finalize(msg);
         return 1;
     }
     
     if (source >= graph_info.nverts) {
-        fprintf(stderr, "❌ Исходная вершина %llu вне диапазона [0, %llu)\n", 
+        fprintf(stderr, "[FAIL] Source vertex %llu out of range [0, %llu)\n", 
                 (unsigned long long)source, (unsigned long long)graph_info.nverts);
         LAGraph_Delete(&graph, msg);
         LAGraph_Finalize(msg);
@@ -261,7 +260,7 @@ int main(int argc, char *argv[]) {
         print_algorithm_stats(&results[count]);
         count++;
     } else {
-        printf("      ❌ Ошибка: %d\n", info);
+        printf("      [FAIL] error: %d\n", info);
     }
     
 
@@ -276,7 +275,7 @@ int main(int argc, char *argv[]) {
         print_algorithm_stats(&results[count]);
         count++;
     } else {
-        printf("      ❌ Ошибка: %d\n", info);
+        printf("      [FAIL] error: %d\n", info);
     }
     
 
@@ -291,7 +290,7 @@ int main(int argc, char *argv[]) {
         print_algorithm_stats(&results[count]);
         count++;
     } else {
-        printf("      ❌ Ошибка: %d\n", info);
+        printf("      [FAIL] error: %d\n", info);
     }
     
     print_results(results, count);
@@ -311,16 +310,16 @@ int main(int argc, char *argv[]) {
     
     info = LAGraph_Finalize(msg);
     if (info != GrB_SUCCESS) {
-        fprintf(stderr, "⚠️  LAGraph_Finalize warning: %d\n%s\n", info, msg);
+        fprintf(stderr, "[!] LAGraph_Finalize warning: %d\n%s\n", info, msg);
     }
     
     if (count == 0) {
-        fprintf(stderr, "❌ Ни один алгоритм не выполнился успешно\n");
+        fprintf(stderr, "[FAIL] No algorithm succeeded\n");
         return 1;
     }
     
     if (!validation_passed) {
-        fprintf(stderr, "⚠️  Валидация не пройдена: результаты алгоритмов различаются\n");
+        fprintf(stderr, "[!] Validation failed: results differ\n");
     }
     
     return 0;

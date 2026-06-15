@@ -234,14 +234,14 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     
     /* Проверка существования файла */
     if (!graph_file_exists(filename)) {
-        fprintf(stderr, "❌ Файл не найден: %s\n", filename);
+        fprintf(stderr, "[FAIL] File not found: %s\n", filename);
         return GrB_INVALID_VALUE;
     }
     
     /* Открытие файла */
     FILE *fp = fopen(filename, "r");
     if (!fp) {
-        fprintf(stderr, "❌ Не удалось открыть файл: %s (ошибка: %s)\n", 
+        fprintf(stderr, "[FAIL] Could not open file: %s (error: %s)\n", 
                 filename, strerror(errno));
         return GrB_INVALID_VALUE;
     }
@@ -254,14 +254,14 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
      * ========================================================================== */
     if (!fgets(line, sizeof(line), fp)) {
         fclose(fp);
-        fprintf(stderr, "❌ Пустой файл или ошибка чтения\n");
+        fprintf(stderr, "[FAIL] Empty file or read error\n");
         return GrB_INVALID_VALUE;
     }
     
     if (!validate_mm_header(line)) {
         fclose(fp);
-        fprintf(stderr, "❌ Неверный формат Matrix Market\n");
-        fprintf(stderr, "   Ожидалось: %%MatrixMarket matrix coordinate real ...\n");
+        fprintf(stderr, "[FAIL] Invalid Matrix Market format\n");
+        fprintf(stderr, "       Expected: %%MatrixMarket matrix coordinate real ...\n");
         return GrB_INVALID_VALUE;
     }
     
@@ -275,21 +275,21 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     info_grb = skip_comments(fp, line);
     if (info_grb != GrB_SUCCESS) {
         fclose(fp);
-        fprintf(stderr, "❌ Не удалось прочитать размеры матрицы\n");
+        fprintf(stderr, "[FAIL] Could not read matrix dimensions\n");
         return GrB_INVALID_VALUE;
     }
     
     info_grb = parse_dimensions(line, &nrows, &ncols, &nentries);
     if (info_grb != GrB_SUCCESS) {
         fclose(fp);
-        fprintf(stderr, "❌ Ошибка парсинга размеров: %s\n", line);
+        fprintf(stderr, "[FAIL] Could not parse dimensions: %s\n", line);
         return GrB_INVALID_VALUE;
     }
     
     /* Проверка на квадратную матрицу (требуется для графов) */
     if (nrows != ncols) {
         fclose(fp);
-        fprintf(stderr, "⚠️  Матрица не квадратная (%lld × %lld)\n", 
+        fprintf(stderr, "[!] Matrix is not square (%lld x %lld)\n", 
                 (long long)nrows, (long long)ncols);
         /* Продолжаем загрузку, но предупреждаем */
     }
@@ -299,7 +299,7 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     
     /* Предупреждение о большом графе */
     if (nentries > LARGE_GRAPH_THRESHOLD) {
-        fprintf(stderr, "⚠️  Большой граф: %lld рёбер (может занять много памяти)\n",
+        fprintf(stderr, "[!] Large graph: %lld edges (may use significant memory)\n",
                 (long long)nentries);
     }
     
@@ -315,7 +315,7 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
         free(col_idx);
         free(weights);
         fclose(fp);
-        fprintf(stderr, "❌ Не удалось выделить память (%lld рёбер)\n",
+        fprintf(stderr, "[FAIL] Could not allocate memory (%lld edges)\n",
                 (long long)nentries);
         return GrB_OUT_OF_MEMORY;
     }
@@ -380,7 +380,7 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
         free(row_idx);
         free(col_idx);
         free(weights);
-        fprintf(stderr, "❌ Не удалось прочитать ни одного ребра\n");
+        fprintf(stderr, "[FAIL] Could not read any edges\n");
         return GrB_INVALID_VALUE;
     }
     
@@ -396,7 +396,7 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
         free(row_idx);
         free(col_idx);
         free(weights);
-        fprintf(stderr, "❌ Не удалось создать матрицу GraphBLAS\n");
+        fprintf(stderr, "[FAIL] Could not create GraphBLAS matrix\n");
         return info_grb;
     }
     
@@ -409,7 +409,7 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     
     if (info_grb != GrB_SUCCESS) {
         GrB_free(&A);
-        fprintf(stderr, "❌ Ошибка построения матрицы: %d\n", info_grb);
+        fprintf(stderr, "[FAIL] Matrix build error: %d\n", info_grb);
         return info_grb;
     }
     
@@ -421,18 +421,18 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     info_grb = LAGraph_New(graph, &A, kind, msg);
     if (info_grb != GrB_SUCCESS) {
         GrB_free(&A);
-        fprintf(stderr, "❌ Не удалось создать LAGraph_Graph\n");
+        fprintf(stderr, "[FAIL] Could not create LAGraph_Graph\n");
         return info_grb;
     }
     
     /* ==========================================================================
      * Шаг 7: Вывод информации о загруженном графе
      * ========================================================================== */
-    fprintf(stderr, "📁 Загружен граф: %s\n", info->name);
-    fprintf(stderr, "   Вершин: %'llu\n", (unsigned long long)info->nverts);
-    fprintf(stderr, "   Рёбер: %'llu\n", (unsigned long long)info->nedges);
-    fprintf(stderr, "   Ориентированный: %s\n", info->directed ? "Да" : "Нет");
-    fprintf(stderr, "   Взвешенный: %s\n", info->has_weights ? "Да" : "Нет");
+    fprintf(stdout, "[LOAD] Graph: %s\n", info->name);
+    fprintf(stdout, "       Vertices: %llu\n", (unsigned long long)info->nverts);
+    fprintf(stdout, "       Edges: %llu\n", (unsigned long long)info->nedges);
+    fprintf(stdout, "       Directed: %s\n", info->directed ? "Yes" : "No");
+    fprintf(stdout, "       Weighted: %s\n", info->has_weights ? "Yes" : "No");
     
     return GrB_SUCCESS;
 }

@@ -125,19 +125,19 @@ bool sssp_validate_distances(GrB_Vector v1, GrB_Vector v2) {
 bool sssp_validate_result(SSSP_Result *result, GrB_Index source) {
     /* Проверка указателя */
     if (!result) {
-        fprintf(stderr, "  ❌ result == NULL\n");
+        fprintf(stderr, "  [FAIL] result == NULL\n");
         return false;
     }
     
     /* Проверка флага успеха */
     if (!result->success) {
-        fprintf(stderr, "  ❌ result->success == false\n");
+        fprintf(stderr, "  [FAIL] result->success == false\n");
         return false;
     }
     
     /* Проверка вектора расстояний */
     if (!result->distances) {
-        fprintf(stderr, "  ❌ result->distances == NULL\n");
+        fprintf(stderr, "  [FAIL] result->distances == NULL\n");
         return false;
     }
     
@@ -145,19 +145,19 @@ bool sssp_validate_result(SSSP_Result *result, GrB_Index source) {
     
     /* Проверка 1: расстояние до источника */
     if (!sssp_validate_source_distance(result->distances, source)) {
-        fprintf(stderr, "  ❌ Расстояние до источника != 0\n");
+        fprintf(stderr, "  [FAIL] Source distance != 0\n");
         valid = false;
     }
     
     /* Проверка 2: неотрицательность */
     if (!sssp_validate_non_negative(result->distances)) {
-        fprintf(stderr, "  ❌ Обнаружены отрицательные расстояния\n");
+        fprintf(stderr, "  [FAIL] Negative distances found\n");
         valid = false;
     }
     
     /* Проверка 3: есть достижимые вершины */
     if (result->reachable_vertices == 0) {
-        fprintf(stderr, "  ❌ Нет достижимых вершин (возможно ошибка)\n");
+        fprintf(stderr, "  [FAIL] No reachable vertices (possible error)\n");
         valid = false;
     }
     
@@ -172,38 +172,35 @@ void sssp_print_validation_report(SSSP_Result *result,
     }
     
     fprintf(stream, "\n");
-    fprintf(stream, "════════════════════════════════════════════════════\n");
-    fprintf(stream, "Отчёт валидации для: %s\n", result->name);
-    fprintf(stream, "════════════════════════════════════════════════════\n");
+    fprintf(stream, "====================================================\n");
+    fprintf(stream, "Validation report for: %s\n", result->name);
+    fprintf(stream, "====================================================\n");
     
-    /* Статус алгоритма */
-    fprintf(stream, "  Статус выполнения: %s\n", 
-            result->success ? "✅ Успех" : "❌ Ошибка");
+    fprintf(stream, "  Status: %s\n", 
+            result->success ? "[OK] Success" : "[FAIL] Error");
     
     if (!result->success) {
-        fprintf(stream, "\n  ⚠️  Алгоритм не выполнился успешно, проверка пропущена\n");
+        fprintf(stream, "\n  [!] Algorithm did not execute, skipping checks\n");
         return;
     }
     
     /* Статистика */
     fprintf(stream, "  Время выполнения: %.2f мс\n", result->time_ms);
-    fprintf(stream, "  Итераций: %d\n", result->iterations);
-    fprintf(stream, "  Достижимо вершин: %llu\n", (unsigned long long)result->reachable_vertices);
+    fprintf(stream, "  Iterations: %d\n", result->iterations);
+    fprintf(stream, "  Reachable vertices: %llu\n", (unsigned long long)result->reachable_vertices);
     
-    /* Проверки */
-    fprintf(stream, "\n  Проверки:\n");
+    fprintf(stream, "\n  Checks:\n");
     
     bool check1 = sssp_validate_source_distance(result->distances, source);
-    fprintf(stream, "    dist[source] == 0: %s\n", check1 ? "✅" : "❌");
+    fprintf(stream, "    dist[source] == 0: %s\n", check1 ? "[OK]" : "[FAIL]");
     
     bool check2 = sssp_validate_non_negative(result->distances);
-    fprintf(stream, "    Все dist >= 0: %s\n", check2 ? "✅" : "❌");
+    fprintf(stream, "    All dist >= 0: %s\n", check2 ? "[OK]" : "[FAIL]");
     
     bool check3 = (result->reachable_vertices > 0);
-    fprintf(stream, "    reachable_vertices > 0: %s\n", check3 ? "✅" : "❌");
+    fprintf(stream, "    reachable_vertices > 0: %s\n", check3 ? "[OK]" : "[FAIL]");
     
-    /* Итог */
-    fprintf(stream, "\n  Итог: %s\n", 
-            (check1 && check2 && check3) ? "✅ Все проверки пройдены" 
-                                          : "❌ Проверки не пройдены");
+    fprintf(stream, "\n  Result: %s\n", 
+            (check1 && check2 && check3) ? "[OK] All checks passed" 
+                                          : "[FAIL] Checks not passed");
 }

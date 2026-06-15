@@ -34,7 +34,7 @@ static struct {
 
 static void register_test(const char *name, bool passed, const char *message) {
     if (test_stats.total >= MAX_TESTS) {
-        fprintf(stderr, "⚠️  Превышено максимальное количество тестов\n");
+        fprintf(stderr, "[!] Max test count exceeded\n");
         return;
     }
     
@@ -45,10 +45,10 @@ static void register_test(const char *name, bool passed, const char *message) {
     
     if (passed) {
         test_stats.passed++;
-        printf("  ✅ %s\n", name);
+        printf("  [OK] %s\n", name);
     } else {
         test_stats.failed++;
-        printf("  ❌ %s\n", name);
+        printf("  [FAIL] %s\n", name);
         if (message) {
             printf("      Ошибка: %s\n", message);
         }
@@ -135,45 +135,44 @@ static bool verify_non_negative(GrB_Vector distances) {
 }
 
 static void test_graph_loading(LAGraph_Graph graph, GraphInfo *info) {
-    printf("\n[Тест] Загрузка графа\n");
+    printf("\n[Test] Graph loading\n");
     
     /* Проверка что граф загружен */
-    register_test("Граф загружен", graph != NULL, NULL);
+    register_test("Graph loaded", graph != NULL, NULL);
     
     /* Проверка количества вершин */
     char msg[256];
-    snprintf(msg, sizeof(msg), "Ожидалось 6, получено %llu", (unsigned long long)info->nverts);
-    register_test("Количество вершин = 6", info->nverts == 6, 
+    snprintf(msg, sizeof(msg), "Expected 6, got %llu", (unsigned long long)info->nverts);
+    register_test("Vertices = 6", info->nverts == 6, 
                   info->nverts != 6 ? msg : NULL);
     
     /* Проверка количества рёбер */
-    snprintf(msg, sizeof(msg), "Ожидалось 10, получено %llu", (unsigned long long)info->nedges);
-    register_test("Количество рёбер = 10", info->nedges == 10,
+    snprintf(msg, sizeof(msg), "Expected 10, got %llu", (unsigned long long)info->nedges);
+    register_test("Edges = 10", info->nedges == 10,
                   info->nedges != 10 ? msg : NULL);
     
     /* Проверка что граф ориентированный */
-    register_test("Граф ориентированный", info->directed == true, NULL);
+    register_test("Directed", info->directed == true, NULL);
 }
 
 
 static void test_lagraph_sssp(LAGraph_Graph graph, GrB_Index source) {
-    printf("\n[Тест] LAGraph SSSP (Delta-Stepping)\n");
+    printf("\n[Test] LAGraph SSSP (Delta-Stepping)\n");
     
     SSSP_Result result;
     GrB_Info info = lagraph_sssp(&result, graph, source, 3.0);
     
-    register_test("Запуск успешен", info == GrB_SUCCESS, NULL);
-    register_test("Флаг успеха установлен", result.success == true, NULL);
-    register_test("Вектор расстояний создан", result.distances != NULL, NULL);
-    register_test("Есть достижимые вершины", result.reachable_vertices > 0, NULL);
+    register_test("Init OK", info == GrB_SUCCESS, NULL);
+    register_test("Success flag", result.success == true, NULL);
+    register_test("Distances vector", result.distances != NULL, NULL);
+    register_test("Has reachable vertices", result.reachable_vertices > 0, NULL);
     
     /* Проверка расстояния до источника */
     register_test("dist[source] == 0", 
                   verify_source_distance(result.distances, source),
                   NULL);
     
-    /* Проверка неотрицательности */
-    register_test("Все расстояния >= 0",
+    register_test("All distances >= 0",
                   verify_non_negative(result.distances),
                   NULL);
     
@@ -182,24 +181,24 @@ static void test_lagraph_sssp(LAGraph_Graph graph, GrB_Index source) {
 
 
 static void test_algebraic_bf(LAGraph_Graph graph, GrB_Index source) {
-    printf("\n[Тест] Algebraic Bellman-Ford\n");
+    printf("\n[Test] Algebraic Bellman-Ford\n");
     
     SSSP_Result result;
     GrB_Info info = algebraic_bf_graphblas(&result, graph, source, 0.0);
     
-    register_test("Запуск успешен", info == GrB_SUCCESS, NULL);
-    register_test("Флаг успеха установлен", result.success == true, NULL);
-    register_test("Вектор расстояний создан", result.distances != NULL, NULL);
-    register_test("Количество итераций > 0", result.iterations > 0, NULL);
+    register_test("Init OK", info == GrB_SUCCESS, NULL);
+    register_test("Success flag", result.success == true, NULL);
+    register_test("Distances vector", result.distances != NULL, NULL);
+    register_test("K > 0", result.iterations > 0, NULL);
     GrB_Index n;
     GrB_Matrix_nrows(&n, graph->A);
-    register_test("Итераций < n вершин", (GrB_Index)result.iterations < n, NULL);
+    register_test("Iterations < n", (GrB_Index)result.iterations < n, NULL);
     
     register_test("dist[source] == 0",
                   verify_source_distance(result.distances, source),
                   NULL);
     
-    register_test("Все расстояния >= 0",
+    register_test("All distances >= 0",
                   verify_non_negative(result.distances),
                   NULL);
     
@@ -208,20 +207,20 @@ static void test_algebraic_bf(LAGraph_Graph graph, GrB_Index source) {
 
 
 static void test_dijkstra(LAGraph_Graph graph, GrB_Index source) {
-    printf("\n[Тест] Dijkstra\n");
+    printf("\n[Test] Dijkstra\n");
     
     SSSP_Result result;
     GrB_Info info = dijkstra_graphblas(&result, graph, source, 0.0);
     
-    register_test("Запуск успешен", info == GrB_SUCCESS, NULL);
-    register_test("Флаг успеха установлен", result.success == true, NULL);
-    register_test("Вектор расстояний создан", result.distances != NULL, NULL);
+    register_test("Init OK", info == GrB_SUCCESS, NULL);
+    register_test("Success flag", result.success == true, NULL);
+    register_test("Distances vector", result.distances != NULL, NULL);
     
     register_test("dist[source] == 0",
                   verify_source_distance(result.distances, source),
                   NULL);
     
-    register_test("Все расстояния >= 0",
+    register_test("All distances >= 0",
                   verify_non_negative(result.distances),
                   NULL);
     
@@ -230,7 +229,7 @@ static void test_dijkstra(LAGraph_Graph graph, GrB_Index source) {
 
 
 static void test_consistency(LAGraph_Graph graph, GrB_Index source) {
-    printf("\n[Тест] Согласованность алгоритмов\n");
+    printf("\n[Test] Algorithm consistency\n");
     
     SSSP_Result ref, alg;
     
@@ -248,7 +247,7 @@ static void test_consistency(LAGraph_Graph graph, GrB_Index source) {
 }
 
 static void test_validator(LAGraph_Graph graph, GrB_Index source) {
-    printf("\n[Тест] Валидатор\n");
+    printf("\n[Test] Validator\n");
     
     SSSP_Result result;
     algebraic_bf_graphblas(&result, graph, source, 0.0);
@@ -281,7 +280,7 @@ static void test_validator(LAGraph_Graph graph, GrB_Index source) {
 
 
 static void test_timer(void) {
-    printf("\n[Тест] Таймер\n");
+    printf("\n[Test] Timer\n");
     
     /* Проверка доступности */
     register_test("timer_is_available",
@@ -291,7 +290,7 @@ static void test_timer(void) {
     /* Проверка разрешения */
     long resolution = timer_get_resolution();
     char msg[256];
-    snprintf(msg, sizeof(msg), "Разрешение: %ld тиков/сек", resolution);
+    snprintf(msg, sizeof(msg), "Resolution: %ld ticks/sec", resolution);
     register_test("timer_get_resolution > 0",
                   resolution > 0,
                   resolution <= 0 ? msg : NULL);
@@ -315,15 +314,15 @@ static void test_timer(void) {
 }
 
 int main(void) {
-    printf("╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║              SSSP GraphBLAS - Юнит-тесты                       ║\n");
-    printf("║                        Version 1.0.0                           ║\n");
-    printf("╚════════════════════════════════════════════════════════════════╝\n");
+    printf("+--------------------------------------------------------------+\n");
+    printf("| SSSP GraphBLAS - Unit Tests                                  |\n");
+    printf("| Version 1.0.0                                                |\n");
+    printf("+--------------------------------------------------------------+\n");
     
     char msg[LAGRAPH_MSG_LEN];
     GrB_Info info = LAGraph_Init(msg);
     if (info != GrB_SUCCESS) {
-        fprintf(stderr, "❌ LAGraph_Init failed: %d\n%s\n", info, msg);
+        fprintf(stderr, "[FAIL] LAGraph_Init failed: %d\n%s\n", info, msg);
         return 1;
     }
     
@@ -333,16 +332,16 @@ int main(void) {
     
     info = graph_load(&graph, TEST_GRAPH_PATH, &graph_info);
     if (info != GrB_SUCCESS) {
-        fprintf(stderr, "❌ Не удалось загрузить тестовый граф: %s\n", 
+        fprintf(stderr, "[FAIL] Could not load test graph: %s\n", 
                 TEST_GRAPH_PATH);
-        fprintf(stderr, "   Убедитесь что файл существует и запущен из корня проекта\n");
+        fprintf(stderr, "       Ensure the file exists and run from project root\n");
         LAGraph_Finalize(msg);
         return 1;
     }
     
-    printf("\nТестовый граф: %s\n", graph_info.name);
-    printf("  Вершин: %llu\n", (unsigned long long)graph_info.nverts);
-    printf("  Рёбер: %llu\n", (unsigned long long)graph_info.nedges);
+    printf("\nTest graph: %s\n", graph_info.name);
+    printf("  Vertices: %llu\n", (unsigned long long)graph_info.nverts);
+    printf("  Edges: %llu\n", (unsigned long long)graph_info.nedges);
     
     GrB_Index source = 0;
     
@@ -364,21 +363,21 @@ int main(void) {
     LAGraph_Delete(&graph, msg);
     LAGraph_Finalize(msg);
     
-    printf("\n╔════════════════════════════════════════════════════════════════╗\n");
-    printf("║                         ИТОГИ ТЕСТОВ                           ║\n");
-    printf("╠════════════════════════════════════════════════════════════════╣\n");
-    printf("║  Всего тестов:     %-4d                                      ║\n", test_stats.total);
-    printf("║  Пройдено:         %-4d  ✅                                  ║\n", test_stats.passed);
-    printf("║  Провалено:        %-4d  ❌                                  ║\n", test_stats.failed);
-    printf("╠════════════════════════════════════════════════════════════════╣\n");
+    printf("\n+--------------------------------------------------------------+\n");
+    printf("|                         TEST RESULTS                          |\n");
+    printf("+--------------------------------------------------------------+\n");
+    printf("| Total: %-56d |\n", test_stats.total);
+    printf("| Passed: %-55d |\n", test_stats.passed);
+    printf("| Failed: %-55d |\n", test_stats.failed);
+    printf("+--------------------------------------------------------------+\n");
     
     if (test_stats.failed == 0) {
-        printf("║  Статус: ВСЕ ТЕСТЫ ПРОЙДЕНЫ ✅                               ║\n");
+        printf("| Status: ALL TESTS PASSED                                    |\n");
     } else {
-        printf("║  Статус: ЕСТЬ ПРОВАЛЫ ❌                                     ║\n");
+        printf("| Status: SOME TESTS FAILED                                    |\n");
     }
     
-    printf("╚════════════════════════════════════════════════════════════════╝\n");
+    printf("+--------------------------------------------------------------+\n");
     
     return (test_stats.failed == 0) ? 0 : 1;
 }
