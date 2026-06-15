@@ -70,7 +70,6 @@ install_packages_apt() {
         build-essential \
         cmake \
         git \
-        libopenmp-dev \
         libsuitesparse-dev
 }
 
