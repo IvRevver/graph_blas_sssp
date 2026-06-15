@@ -247,24 +247,30 @@ int main(int argc, char *argv[]) {
     
     SSSP_Result results[MAX_ALGORITHMS];
     int count = 0;
-    
+    int step = 1;
 
-    printf("\n[1/3] LAGraph SSSP (Delta-Stepping)...\n");
-    fflush(stdout);
-    
-    timer_start();
-    info = lagraph_sssp(&results[count], graph, source, delta);
-    results[count].time_ms = timer_stop_ms();
-    
-    if (info == GrB_SUCCESS) {
-        print_algorithm_stats(&results[count]);
-        count++;
-    } else {
-        printf("      [FAIL] error: %d\n", info);
+    if (graph_info.has_negative_weights) {
+        printf("\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
+    }
+
+    if (!graph_info.has_negative_weights) {
+        printf("\n[%d/3] LAGraph SSSP (Delta-Stepping)...\n", step++);
+        fflush(stdout);
+        
+        timer_start();
+        info = lagraph_sssp(&results[count], graph, source, delta);
+        results[count].time_ms = timer_stop_ms();
+        
+        if (info == GrB_SUCCESS) {
+            print_algorithm_stats(&results[count]);
+            count++;
+        } else {
+            printf("      [FAIL] error: %d\n", info);
+        }
     }
     
 
-    printf("\n[2/3] Algebraic Bellman-Ford...\n");
+    printf("\n[%d/3] Algebraic Bellman-Ford...\n", step++);
     fflush(stdout);
     
     timer_start();
@@ -279,18 +285,20 @@ int main(int argc, char *argv[]) {
     }
     
 
-    printf("\n[3/3] Dijkstra...\n");
-    fflush(stdout);
-    
-    timer_start();
-    info = dijkstra_graphblas(&results[count], graph, source, 0.0);
-    results[count].time_ms = timer_stop_ms();
-    
-    if (info == GrB_SUCCESS) {
-        print_algorithm_stats(&results[count]);
-        count++;
-    } else {
-        printf("      [FAIL] error: %d\n", info);
+    if (!graph_info.has_negative_weights) {
+        printf("\n[%d/3] Dijkstra...\n", step++);
+        fflush(stdout);
+        
+        timer_start();
+        info = dijkstra_graphblas(&results[count], graph, source, 0.0);
+        results[count].time_ms = timer_stop_ms();
+        
+        if (info == GrB_SUCCESS) {
+            print_algorithm_stats(&results[count]);
+            count++;
+        } else {
+            printf("      [FAIL] error: %d\n", info);
+        }
     }
     
     print_results(results, count);
