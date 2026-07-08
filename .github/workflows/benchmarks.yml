@@ -3,24 +3,31 @@ name: Benchmarks
 on:
   workflow_dispatch:
 
+
 jobs:
   benchmarks:
     name: Run benchmarks
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Cache LAGraph source
-        uses: actions/cache@v4
-        with:
-          path: /tmp/LAGraph
-          key: lagraph-src-${{ runner.os }}-1
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libsuitesparse-dev cmake build-essential
 
-      - name: Setup dependencies
-        uses: ./.github/actions/setup
+      - name: Build and install LAGraph
+        run: |
+          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+          cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo cmake --build /tmp/LAGraph/build --target install -j$(nproc)
+          sudo ldconfig
 
-      - name: Configure and build
+      - name: Configure and build Release
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j$(nproc)
