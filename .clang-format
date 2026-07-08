@@ -1,0 +1,52 @@
+BasedOnStyle: LLVM
+
+# 4-space indentation
+IndentWidth: 4
+UseTab: Never
+TabWidth: 4
+
+# Brace placement: K&R (same line)
+BreakBeforeBraces: Attach
+
+# Column limit (loose)
+ColumnLimit: 100
+
+# Pointer style: space before *, e.g. int *x
+PointerAlignment: Right
+
+# Keywords get a space before paren: if (...), for (...)
+SpaceBeforeParens: ControlStatements
+
+# Keep #include order as-is
+SortIncludes: false
+
+# Function parameters / arguments
+BinPackParameters: true
+BinPackArguments: true
+
+# Return type on same line as function name
+AlwaysBreakAfterReturnType: None
+
+# Allow up to 2 consecutive empty lines
+MaxEmptyLinesToKeep: 2
+
+# Control statement bodies on separate lines
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
+# No space after C-style cast: (void)x
+SpaceAfterCStyleCast: false
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+IndentCaseLabels: false
+
+# String literal handling
+BreakStringLiterals: true
+
+# Empty lines at start of blocks
+KeepEmptyLinesAtTheStartOfBlocks: false

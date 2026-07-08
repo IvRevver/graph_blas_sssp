@@ -54,9 +54,8 @@ static void sanitize_filename(const char *src, char *dst, size_t dst_size) {
 }
 
 
-static void write_csv_table(const char *graph_name, const char *algorithms[],
-                             double means[], double mins[], double maxs[],
-                             double stds[], int count) {
+static void write_csv_table(const char *graph_name, const char *algorithms[], double means[],
+                            double mins[], double maxs[], double stds[], int count) {
     char safe_name[256];
     sanitize_filename(graph_name, safe_name, sizeof(safe_name));
 
@@ -71,8 +70,8 @@ static void write_csv_table(const char *graph_name, const char *algorithms[],
 
     fprintf(f, "graph,algorithm,avg_ms,min_ms,max_ms,stddev\n");
     for (int i = 0; i < count; i++) {
-        fprintf(f, "%s,%s,%.2f,%.2f,%.2f,%.2f\n",
-                graph_name, algorithms[i], means[i], mins[i], maxs[i], stds[i]);
+        fprintf(f, "%s,%s,%.2f,%.2f,%.2f,%.2f\n", graph_name, algorithms[i], means[i], mins[i],
+                maxs[i], stds[i]);
     }
 
     fclose(f);
@@ -99,9 +98,7 @@ static void print_usage(const char *prog) {
 }
 
 
-static void print_benchmark_header(const GraphInfo *graph_info, 
-                                   GrB_Index source, 
-                                   double delta) {
+static void print_benchmark_header(const GraphInfo *graph_info, GrB_Index source, double delta) {
     char line[256];
     printf("+--------------------------------------------------------------+\n");
     snprintf(line, sizeof(line), "SSSP GraphBLAS Benchmark v%s", VERSION);
@@ -109,9 +106,8 @@ static void print_benchmark_header(const GraphInfo *graph_info,
     printf("|--------------------------------------------------------------|\n");
     snprintf(line, sizeof(line), "Graph: %.248s", graph_info->name);
     printf("| %-60s |\n", line);
-    snprintf(line, sizeof(line), "Vertices: %llu  Edges: %llu  Source: %llu", 
-             (unsigned long long)graph_info->nverts,
-             (unsigned long long)graph_info->nedges,
+    snprintf(line, sizeof(line), "Vertices: %llu  Edges: %llu  Source: %llu",
+             (unsigned long long)graph_info->nverts, (unsigned long long)graph_info->nedges,
              (unsigned long long)source);
     printf("| %-60s |\n", line);
     snprintf(line, sizeof(line), "Delta: %.2f", delta);
@@ -127,24 +123,21 @@ static void print_results(SSSP_Result results[], int count) {
     printf("+----------------------------+--------------+------------------+\n");
     printf("| %-26s | %-12s | %-16s |\n", "Algorithm", "Time (ms)", "Status");
     printf("+----------------------------+--------------+------------------+\n");
-    
+
     for (int i = 0; i < count; i++) {
         char status[20];
-        
+
         if (results[i].success) {
             snprintf(status, sizeof(status), "%s", "OK");
         } else {
             snprintf(status, sizeof(status), "%s", "FAIL");
         }
-        
+
         double time_ms = results[i].success ? results[i].time_ms : 0.0;
-        
-        printf("| %-26s | %12.2f | %-16s |\n", 
-               results[i].name, 
-               time_ms, 
-               status);
+
+        printf("| %-26s | %12.2f | %-16s |\n", results[i].name, time_ms, status);
     }
-    
+
     printf("+--------------------------------------------------------------+\n");
 }
 
@@ -153,40 +146,39 @@ static void print_algorithm_stats(const SSSP_Result *result) {
     if (!result->success) {
         return;
     }
-    
+
     printf("      [OK] %.2f ms", result->time_ms);
-    
+
     if (result->iterations > 0) {
         printf(", iters: %d", result->iterations);
     }
-    
+
     printf(", reachable: %llu", (unsigned long long)result->reachable_vertices);
-    
+
     printf("\n");
 }
 
 
 static bool validate_results(SSSP_Result results[], int count) {
     if (count < 2) {
-        return true;  /* Нечего сравнивать */
+        return true; /* Нечего сравнивать */
     }
-    
+
     printf("\n");
     printf("===============================================================\n");
     printf("Validation:\n");
-    
+
     bool all_valid = true;
-    
+
     SSSP_Result *reference = &results[0];
-    
+
     for (int i = 1; i < count; i++) {
         if (!results[i].success) {
             continue;
         }
-        
-        bool match = sssp_validate_distances(reference->distances, 
-                                             results[i].distances);
-        
+
+        bool match = sssp_validate_distances(reference->distances, results[i].distances);
+
         if (match) {
             printf("  [OK] %s matches reference\n", results[i].name);
         } else {
@@ -194,7 +186,7 @@ static bool validate_results(SSSP_Result results[], int count) {
             all_valid = false;
         }
     }
-    
+
     return all_valid;
 }
 
@@ -202,14 +194,14 @@ static bool validate_results(SSSP_Result results[], int count) {
 static int find_best_algorithm(SSSP_Result results[], int count) {
     int best_idx = -1;
     double best_time = INFINITY;
-    
+
     for (int i = 0; i < count; i++) {
         if (results[i].success && results[i].time_ms < best_time) {
             best_time = results[i].time_ms;
             best_idx = i;
         }
     }
-    
+
     return best_idx;
 }
 
@@ -218,38 +210,37 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
     if (best_idx < 0 || best_idx >= count) {
         return;
     }
-    
+
     double best_time = results[best_idx].time_ms;
-    
+
     if (best_time <= 0) {
         return;
     }
-    
+
     char line[256];
     printf("\n");
     printf("+--------------------------------------------------------------+\n");
-            snprintf(line, sizeof(line), "Speedup (vs %.63s)", results[best_idx].name);
+    snprintf(line, sizeof(line), "Speedup (vs %.63s)", results[best_idx].name);
     printf("| %-60s |\n", line);
     printf("+----------------------------+---------------------------------+\n");
-    
+
     for (int i = 0; i < count; i++) {
         if (!results[i].success || results[i].time_ms <= 0) {
             continue;
         }
-        
+
         double speedup = results[i].time_ms / best_time;
-        
-    char line[256];
+
+        char line[256];
         if (i == best_idx) {
-            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx  (fastest)", 
-                     results[i].name, "|", speedup);
+            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx  (fastest)", results[i].name, "|",
+                     speedup);
         } else {
-            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx", 
-                     results[i].name, "|", speedup);
+            snprintf(line, sizeof(line), "%-28.63s %s %8.2fx", results[i].name, "|", speedup);
         }
         printf("| %-60s |\n", line);
     }
-    
+
     printf("+--------------------------------------------------------------+\n");
 }
 
@@ -260,24 +251,28 @@ static void print_stats_header(void) {
 }
 
 static void print_stats_row(const char *name, double mean, double min, double max, double std) {
-    printf("| %-20s | %8.2f | %8.2f | %8.2f | %8.2f |\n",
-           name, mean, min, max, std);
+    printf("| %-20s | %8.2f | %8.2f | %8.2f | %8.2f |\n", name, mean, min, max, std);
 }
 
-static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
-                                 GrB_Index source, double delta, int runs) {
+static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
+                                double delta, int runs) {
     double *times = malloc(runs * sizeof(double));
     if (!times) {
         fprintf(stderr, "[!] Out of memory for %d runs\n", runs);
         return;
     }
 
-    typedef GrB_Info (*AlgFunc)(SSSP_Result*, LAGraph_Graph, GrB_Index, double);
+    typedef GrB_Info (*AlgFunc)(SSSP_Result *, LAGraph_Graph, GrB_Index, double);
 
-    struct { const char *name; AlgFunc func; double param; bool skip_negative; } algs[] = {
-        { "Delta-Stepping (LAG)", lagraph_sssp,           delta, true },
-        { "Algebraic BF (GB)",    algebraic_bf_graphblas,  0.0,   false },
-        { "Dijkstra (GB)",       dijkstra_graphblas,      0.0,   true },
+    struct {
+        const char *name;
+        AlgFunc func;
+        double param;
+        bool skip_negative;
+    } algs[] = {
+        {"Delta-Stepping (LAG)", lagraph_sssp, delta, true},
+        {"Algebraic BF (GB)", algebraic_bf_graphblas, 0.0, false},
+        {"Dijkstra (GB)", dijkstra_graphblas, 0.0, true},
     };
     int nalgs = sizeof(algs) / sizeof(algs[0]);
 
@@ -309,8 +304,10 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
             double sum = 0, mn = times[0], mx = times[0];
             for (int i = 0; i < valid; i++) {
                 sum += times[i];
-                if (times[i] < mn) mn = times[i];
-                if (times[i] > mx) mx = times[i];
+                if (times[i] < mn)
+                    mn = times[i];
+                if (times[i] > mx)
+                    mx = times[i];
             }
             double mean = sum / valid;
             double sq = 0;
@@ -359,21 +356,23 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
             }
         }
         if (csv_count > 0)
-            write_csv_table(graph_info->name, csv_names, csv_means, csv_mins, csv_maxs, csv_stds, csv_count);
+            write_csv_table(graph_info->name, csv_names, csv_means, csv_mins, csv_maxs, csv_stds,
+                            csv_count);
     }
 
     free(times);
 }
 
-static bool compute_stats(
-                           GrB_Info (*func)(SSSP_Result*, LAGraph_Graph, GrB_Index, double),
-                           double param, LAGraph_Graph graph, GrB_Index source,
-                           int runs, bool skip_negative, GraphInfo *graph_info,
-                           double *out_mean, double *out_min, double *out_max, double *out_std) {
-    if (skip_negative && graph_info->has_negative_weights) return false;
+static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Index, double),
+                          double param, LAGraph_Graph graph, GrB_Index source, int runs,
+                          bool skip_negative, GraphInfo *graph_info, double *out_mean,
+                          double *out_min, double *out_max, double *out_std) {
+    if (skip_negative && graph_info->has_negative_weights)
+        return false;
 
     double *times = malloc(runs * sizeof(double));
-    if (!times) return false;
+    if (!times)
+        return false;
 
     int valid = 0;
     for (int i = 0; i < runs; i++) {
@@ -381,17 +380,23 @@ static bool compute_stats(
         timer_start();
         GrB_Info info = func(&result, graph, source, param);
         double t = timer_stop_ms();
-        if (info == GrB_SUCCESS) times[valid++] = t;
+        if (info == GrB_SUCCESS)
+            times[valid++] = t;
         sssp_result_cleanup(&result);
     }
 
-    if (valid < 1) { free(times); return false; }
+    if (valid < 1) {
+        free(times);
+        return false;
+    }
 
     double sum = 0, mn = times[0], mx = times[0];
     for (int i = 0; i < valid; i++) {
         sum += times[i];
-        if (times[i] < mn) mn = times[i];
-        if (times[i] > mx) mx = times[i];
+        if (times[i] < mn)
+            mn = times[i];
+        if (times[i] > mx)
+            mx = times[i];
     }
     *out_mean = sum / valid;
     *out_min = mn;
@@ -408,8 +413,8 @@ static bool compute_stats(
 }
 
 
-static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
-                                GrB_Index source, int runs) {
+static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
+                               int runs) {
     const double deltas[] = {0.5, 1.0, 2.0, 3.0, 5.0, 10.0};
     int ndeltas = sizeof(deltas) / sizeof(deltas[0]);
 
@@ -420,18 +425,22 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
     for (int d = 0; d < ndeltas; d++) {
         if (d == 0) {
             double m, mn, mx, s;
-            if (compute_stats(algebraic_bf_graphblas, 0.0,
-                              graph, source, runs, false, graph_info,
+            if (compute_stats(algebraic_bf_graphblas, 0.0, graph, source, runs, false, graph_info,
                               &m, &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Algebraic BF");
-                means[n] = m; mins[n] = mn; maxs[n] = mx; stds[n] = s;
+                means[n] = m;
+                mins[n] = mn;
+                maxs[n] = mx;
+                stds[n] = s;
                 n++;
             }
-            if (compute_stats(dijkstra_graphblas, 0.0,
-                              graph, source, runs, true, graph_info,
-                              &m, &mn, &mx, &s)) {
+            if (compute_stats(dijkstra_graphblas, 0.0, graph, source, runs, true, graph_info, &m,
+                              &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Dijkstra");
-                means[n] = m; mins[n] = mn; maxs[n] = mx; stds[n] = s;
+                means[n] = m;
+                mins[n] = mn;
+                maxs[n] = mx;
+                stds[n] = s;
                 n++;
             }
         }
@@ -439,28 +448,31 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
         char ds_label[64];
         snprintf(ds_label, sizeof(ds_label), "DS delta=%.1f", deltas[d]);
         double m, mn, mx, s;
-        if (compute_stats(lagraph_sssp, deltas[d],
-                          graph, source, runs, true, graph_info,
-                          &m, &mn, &mx, &s)) {
+        if (compute_stats(lagraph_sssp, deltas[d], graph, source, runs, true, graph_info, &m, &mn,
+                          &mx, &s)) {
             snprintf(labels[n], sizeof(labels[n]), "%s", ds_label);
-            means[n] = m; mins[n] = mn; maxs[n] = mx; stds[n] = s;
+            means[n] = m;
+            mins[n] = mn;
+            maxs[n] = mx;
+            stds[n] = s;
             n++;
         }
     }
 
-    printf("\n+-- Full benchmark: %s (source=%llu, runs=%d) --+\n",
-           graph_info->name, (unsigned long long)source, runs);
-    printf("| %-30s | %8s | %8s | %8s | %8s |\n",
-           "Algorithm", "Avg(ms)", "Min(ms)", "Max(ms)", "StdDev");
+    printf("\n+-- Full benchmark: %s (source=%llu, runs=%d) --+\n", graph_info->name,
+           (unsigned long long)source, runs);
+    printf("| %-30s | %8s | %8s | %8s | %8s |\n", "Algorithm", "Avg(ms)", "Min(ms)", "Max(ms)",
+           "StdDev");
     printf("+--------------------------------+----------+----------+----------+----------+\n");
     for (int i = 0; i < n; i++) {
-        printf("| %-30s | %8.2f | %8.2f | %8.2f | %8.2f |\n",
-               labels[i], means[i], mins[i], maxs[i], stds[i]);
+        printf("| %-30s | %8.2f | %8.2f | %8.2f | %8.2f |\n", labels[i], means[i], mins[i], maxs[i],
+               stds[i]);
     }
     printf("+--------------------------------+----------+----------+----------+----------+\n");
 
     const char *alg_names[20];
-    for (int i = 0; i < n; i++) alg_names[i] = labels[i];
+    for (int i = 0; i < n; i++)
+        alg_names[i] = labels[i];
     ensure_results_dir();
     write_csv_table(graph_info->name, alg_names, means, mins, maxs, stds, n);
 }
@@ -471,7 +483,7 @@ int main(int argc, char *argv[]) {
         print_usage(argv[0]);
         return 1;
     }
-    
+
     const char *graph_file = argv[1];
     GrB_Index source = 0;
     double delta = 3.0;
@@ -518,7 +530,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[!] Invalid runs: %s, using 1\n", argv[arg_idx]);
         }
     }
-    
+
     char msg[LAGRAPH_MSG_LEN];
     GrB_Info info = LAGraph_Init(msg);
     if (info != GrB_SUCCESS) {
@@ -526,19 +538,19 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "   убедитесь, что GraphBLAS и LAGraph установлены\n");
         return 1;
     }
-    
+
     LAGraph_Graph graph = NULL;
     GraphInfo graph_info;
-    
+
     info = graph_load(&graph, graph_file, &graph_info);
     if (info != GrB_SUCCESS) {
         fprintf(stderr, "[FAIL] Could not load graph: %d\n", info);
         LAGraph_Finalize(msg);
         return 1;
     }
-    
+
     if (source >= graph_info.nverts) {
-        fprintf(stderr, "[FAIL] Source vertex %llu out of range [0, %llu)\n", 
+        fprintf(stderr, "[FAIL] Source vertex %llu out of range [0, %llu)\n",
                 (unsigned long long)source, (unsigned long long)graph_info.nverts);
         LAGraph_Delete(&graph, msg);
         LAGraph_Finalize(msg);
@@ -546,7 +558,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (full_bench) {
-        if (runs < 2) runs = 30;
+        if (runs < 2)
+            runs = 30;
         run_full_benchmark(graph, &graph_info, source, runs);
         LAGraph_Delete(&graph, msg);
         LAGraph_Finalize(msg);
@@ -560,25 +573,26 @@ int main(int argc, char *argv[]) {
         LAGraph_Finalize(msg);
         return 0;
     }
-    
+
     print_benchmark_header(&graph_info, source, delta);
-    
+
     SSSP_Result results[MAX_ALGORITHMS];
     int count = 0;
     int step = 1;
 
     if (graph_info.has_negative_weights) {
-        printf("\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
+        printf(
+            "\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
     }
 
     if (!graph_info.has_negative_weights) {
         printf("\n[%d/3] LAGraph SSSP (Delta-Stepping)...\n", step++);
         fflush(stdout);
-        
+
         timer_start();
         info = lagraph_sssp(&results[count], graph, source, delta);
         results[count].time_ms = timer_stop_ms();
-        
+
         if (info == GrB_SUCCESS) {
             print_algorithm_stats(&results[count]);
             count++;
@@ -586,31 +600,31 @@ int main(int argc, char *argv[]) {
             printf("      [FAIL] error: %d\n", info);
         }
     }
-    
+
 
     printf("\n[%d/3] Algebraic Bellman-Ford...\n", step++);
     fflush(stdout);
-    
+
     timer_start();
     info = algebraic_bf_graphblas(&results[count], graph, source, 0.0);
     results[count].time_ms = timer_stop_ms();
-    
+
     if (info == GrB_SUCCESS) {
         print_algorithm_stats(&results[count]);
         count++;
     } else {
         printf("      [FAIL] error: %d\n", info);
     }
-    
+
 
     if (!graph_info.has_negative_weights) {
         printf("\n[%d/3] Dijkstra...\n", step++);
         fflush(stdout);
-        
+
         timer_start();
         info = dijkstra_graphblas(&results[count], graph, source, 0.0);
         results[count].time_ms = timer_stop_ms();
-        
+
         if (info == GrB_SUCCESS) {
             print_algorithm_stats(&results[count]);
             count++;
@@ -618,7 +632,7 @@ int main(int argc, char *argv[]) {
             printf("      [FAIL] error: %d\n", info);
         }
     }
-    
+
     print_results(results, count);
 
     {
@@ -638,31 +652,31 @@ int main(int argc, char *argv[]) {
     }
 
     bool validation_passed = validate_results(results, count);
-    
+
     int best_idx = find_best_algorithm(results, count);
     if (best_idx >= 0) {
         print_speedup(results, count, best_idx);
     }
-    
+
     for (int i = 0; i < count; i++) {
         sssp_result_cleanup(&results[i]);
     }
-    
+
     LAGraph_Delete(&graph, msg);
-    
+
     info = LAGraph_Finalize(msg);
     if (info != GrB_SUCCESS) {
         fprintf(stderr, "[!] LAGraph_Finalize warning: %d\n%s\n", info, msg);
     }
-    
+
     if (count == 0) {
         fprintf(stderr, "[FAIL] No algorithm succeeded\n");
         return 1;
     }
-    
+
     if (!validation_passed) {
         fprintf(stderr, "[!] Validation failed: results differ\n");
     }
-    
+
     return 0;
 }

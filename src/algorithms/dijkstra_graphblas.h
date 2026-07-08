@@ -1,7 +1,7 @@
 /**
  * @file dijkstra_graphblas.h
  * @brief Dijkstra алгоритм через Raw GraphBLAS
- * 
+ *
  * Алгоритм: Dijkstra с приоритетной очередью
  * Ограничение: Только для неотрицательных весов
  */
@@ -13,7 +13,7 @@
 
 /**
  * @brief Запуск Dijkstra через GraphBLAS
- * 
+ *
  * @param result Структура результата
  * @param graph Граф LAGraph
  * @param source Исходная вершина
@@ -21,7 +21,7 @@
  * @return GrB_SUCCESS если успешно
  */
 
-GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, 
-                            GrB_Index source, double delta);
+GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source,
+                            double delta);
 
 #endif /* DIJKSTRA_GRAPHBLAS_H */

@@ -10,11 +10,13 @@ void timer_start(void) {
 }
 
 double timer_stop_ms(void) {
-    if (!timer_initialized) return 0.0;
+    if (!timer_initialized)
+        return 0.0;
     return (LAGraph_WallClockTime() - start_time) * 1000.0;
 }
 
 double timer_stop_sec(void) {
-    if (!timer_initialized) return 0.0;
+    if (!timer_initialized)
+        return 0.0;
     return LAGraph_WallClockTime() - start_time;
 }
