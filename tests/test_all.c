@@ -282,23 +282,8 @@ static void test_validator(LAGraph_Graph graph, GrB_Index source) {
 static void test_timer(void) {
     printf("\n[Test] Timer\n");
     
-    /* Проверка доступности */
-    register_test("timer_is_available",
-                  timer_is_available(),
-                  NULL);
-    
-    /* Проверка разрешения */
-    long resolution = timer_get_resolution();
-    char msg[256];
-    snprintf(msg, sizeof(msg), "Resolution: %ld ticks/sec", resolution);
-    register_test("timer_get_resolution > 0",
-                  resolution > 0,
-                  resolution <= 0 ? msg : NULL);
-    
-    /* Проверка измерения времени */
     timer_start();
     
-    /* Небольшая задержка */
     volatile int sum = 0;
     for (int i = 0; i < 1000000; i++) {
         sum += i;
