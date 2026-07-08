@@ -35,6 +35,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache GraphBLAS source
+        uses: actions/cache@v4
+        with:
+          path: GraphBLAS/
+          key: graphblas-src-${{ runner.os }}-v1
+          restore-keys: graphblas-src-${{ runner.os }}-
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build-debug/CMakeFiles
+          key: cmake-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', 'src/*.c', 'tests/*.c') }}
+          restore-keys: cmake-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           sudo apt-get update
