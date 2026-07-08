@@ -14,7 +14,7 @@ set(SOURCES
 add_executable(test_sssp ${SOURCES})
 target_link_libraries(test_sssp PRIVATE
     GraphBLAS::GraphBLAS
-    LAGraph::LAGraph
+    SuiteSparse::LAGraph
     OpenMP::OpenMP_C
     m
 )

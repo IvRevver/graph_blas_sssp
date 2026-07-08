@@ -24,11 +24,6 @@ find_package(OpenMP REQUIRED)
 
 enable_testing()
 
-option(BUILD_BENCHMARKS "Build benchmark targets" OFF)
-
 add_subdirectory(src)
 add_subdirectory(tests)
-
-if(BUILD_BENCHMARKS)
-  add_subdirectory(benchmarks)
-endif()
+add_subdirectory(benchmarks)

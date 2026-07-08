@@ -14,7 +14,7 @@ set(SOURCES
 add_executable(sssp_benchmark ${SOURCES})
 target_link_libraries(sssp_benchmark PRIVATE
     GraphBLAS::GraphBLAS
-    LAGraph::LAGraph
+    SuiteSparse::LAGraph
     OpenMP::OpenMP_C
     m
 )
