@@ -41,13 +41,22 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libsuitesparse-dev cmake build-essential
 
-      - name: Build and install LAGraph
+      - name: Build and install GraphBLAS
         run: |
-          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
-          cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-          sudo cmake --build /tmp/LAGraph/build --target install -j$(nproc)
-          sudo ldconfig
+          if [ -f "/usr/local/lib/libgraphblas.so" ]; then
+            echo "GraphBLAS already installed"
+          elif [ -d "GraphBLAS" ] && [ -f "GraphBLAS/Makefile" ]; then
+            cd GraphBLAS
+            make -j$(nproc)
+            sudo make install
+            sudo ldconfig
+          else
+            git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+            cd GraphBLAS
+            make -j$(nproc)
+            sudo make install
+            sudo ldconfig
+          fi
 
       - name: Configure Debug
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
