@@ -1,42 +1,31 @@
 name: Setup GraphBLAS and LAGraph
-description: Build and install SuiteSparse GraphBLAS and LAGraph from source
+description: Install SuiteSparse GraphBLAS (apt) and build LAGraph from source
 
 runs:
   using: composite
   steps:
-    - name: Install build tools
+    - name: Install apt dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          cmake build-essential git
-      shell: bash
-
-    - name: Build and install GraphBLAS
-      run: |
-        git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git /tmp/GraphBLAS
-        mkdir -p /tmp/GraphBLAS/build
-        cmake -S /tmp/GraphBLAS -B /tmp/GraphBLAS/build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local \
-          -DBUILD_TESTING=OFF
-        make -j$(nproc) -C /tmp/GraphBLAS/build
-        sudo make -C /tmp/GraphBLAS/build install
-        sudo ldconfig
+          libsuitesparse-dev cmake build-essential git
       shell: bash
 
     - name: Build and install LAGraph
       run: |
-        GRAPHBLAS_DIR=$(find /usr -name "GraphBLASConfig.cmake" -type f 2>/dev/null | head -1 | xargs dirname)
-        if [ -z "$GRAPHBLAS_DIR" ]; then
-          echo "GraphBLASConfig.cmake not found" 1>&2
-          exit 1
+        if [ -f "/usr/local/lib/liblagraph.so" ]; then
+          echo "LAGraph already installed"
+          exit 0
         fi
-        echo "Found GraphBLAS at $GRAPHBLAS_DIR"
-        git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+        if [ ! -d "/tmp/LAGraph" ] || [ ! -f "/tmp/LAGraph/CMakeLists.txt" ]; then
+          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+        fi
         mkdir -p /tmp/LAGraph/build
         cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local
+          -DCMAKE_INSTALL_PREFIX=/usr/local \
+          -DGRAPHBLAS_INCLUDE_DIR=/usr/include/suitesparse \
+          -DGRAPHBLAS_LIBRARY=/usr/lib/x86_64-linux-gnu/libgraphblas.so
         make -j$(nproc) -C /tmp/LAGraph/build
         sudo make -C /tmp/LAGraph/build install
         sudo ldconfig
