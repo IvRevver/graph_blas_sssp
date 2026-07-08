@@ -316,11 +316,17 @@ run-delta-stats: $(TARGET)
 	echo "--------------------------------------------------------------"; \
 	first=1; \
 	for d in $(DELTAS); do \
-		$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" -v f="$$first" ' \
-			/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0; next } \
-			f == 1 && /Algebraic.*\(GB\)/ { printf "Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next } \
-			f == 1 && /Dijkstra.*\(GB\)/ { printf "Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next }'; \
-		first=0; \
+		if [ $$first -eq 1 ]; then \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" ' \
+				/Algebraic.*\(GB\)/   { abf = sprintf("Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0); next } \
+				/Dijkstra.*\(GB\)/    { dij = sprintf("Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0); next } \
+				/Delta-Stepping.*\(LAG\)/ { ds = sprintf("DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0) } \
+				END { printf "%s%s%s", abf, dij, ds }'; \
+			first=0; \
+		else \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" ' \
+				/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0 }'; \
+		fi; \
 	done
 
 .PHONY: bench-stats
@@ -345,11 +351,17 @@ bench-delta-stats: $(TARGET)
 	echo "--------------------------------------------------------------"; \
 	first=1; \
 	for d in $(DELTAS); do \
-		$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" -v f="$$first" ' \
-			/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0; next } \
-			f == 1 && /Algebraic.*\(GB\)/ { printf "Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next } \
-			f == 1 && /Dijkstra.*\(GB\)/ { printf "Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next }'; \
-		first=0; \
+		if [ $$first -eq 1 ]; then \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" ' \
+				/Algebraic.*\(GB\)/   { abf = sprintf("Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0); next } \
+				/Dijkstra.*\(GB\)/    { dij = sprintf("Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0); next } \
+				/Delta-Stepping.*\(LAG\)/ { ds = sprintf("DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0) } \
+				END { printf "%s%s%s", abf, dij, ds }'; \
+			first=0; \
+		else \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" ' \
+				/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0 }'; \
+		fi; \
 	done; \
 	} > "$$fname"; \
 	echo "Results saved to: $$fname"
@@ -421,19 +433,6 @@ else
 	sudo rm -f /usr/local/bin/sssp_benchmark
 	@echo "✅ Удаление завершено"
 endif
-
-# ==============================================================================
-# Документация
-# ==============================================================================
-
-.PHONY: docs
-docs:
-	@echo "📚 Генерация документации (требуется Doxygen)..."
-	@if command -v doxygen >/dev/null 2>&1; then \
-		doxygen Doxyfile 2>/dev/null || echo "⚠️  Doxyfile не найден"; \
-	else \
-		echo "❌ Doxygen не установлен. Установите: sudo apt-get install doxygen"; \
-	fi
 
 # ==============================================================================
 # Проверка зависимостей
@@ -528,7 +527,7 @@ help:
 	@echo "║  Переменные:                                                              ║"
 	@echo "║    CC=$(CC)                                                                 ║"
 	@echo "║    CFLAGS=$(CFLAGS)                             ║"
-	@echo "║    LDFLAGS=-lgraphblas -llagraph -lm -fopenmp -Wl,-rpath,/usr/local/lib64 ║"
+	@echo "║    LDFLAGS=$(LDFLAGS) ║"
 	@echo "║    DELTAS=$(DELTAS)                                        ║"
 	@echo "║    RUNS=$(RUNS)                                                                ║"
 	@echo "╚═══════════════════════════════════════════════════════════════════════════╝"
