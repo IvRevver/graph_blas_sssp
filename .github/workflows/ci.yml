@@ -57,20 +57,32 @@ jobs:
 
       - name: Build and install GraphBLAS
         run: |
-          if [ -f "/usr/local/lib/libgraphblas.so" ]; then
-            echo "GraphBLAS already installed"
-          elif [ -d "GraphBLAS" ] && [ -f "GraphBLAS/Makefile" ]; then
-            cd GraphBLAS
-            make -j$(nproc)
-            sudo make install
-            sudo ldconfig
-          else
-            git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
-            cd GraphBLAS
-            make -j$(nproc)
-            sudo make install
-            sudo ldconfig
+          git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git /tmp/GraphBLAS
+          mkdir -p /tmp/GraphBLAS/build
+          cmake -S /tmp/GraphBLAS -B /tmp/GraphBLAS/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DBUILD_TESTING=OFF
+          make -j$(nproc) -C /tmp/GraphBLAS/build
+          sudo make -C /tmp/GraphBLAS/build install
+          sudo ldconfig
+
+      - name: Build and install LAGraph
+        run: |
+          GRAPHBLAS_DIR=$(find /usr -name "GraphBLASConfig.cmake" -type f 2>/dev/null | head -1 | xargs dirname)
+          if [ -z "$GRAPHBLAS_DIR" ]; then
+            echo "GraphBLASConfig.cmake not found" 1>&2
+            exit 1
           fi
+          echo "Found GraphBLAS at $GRAPHBLAS_DIR"
+          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+          mkdir -p /tmp/LAGraph/build
+          cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+          make -j$(nproc) -C /tmp/LAGraph/build
+          sudo make -C /tmp/LAGraph/build install
+          sudo ldconfig
 
       - name: Configure Debug
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
