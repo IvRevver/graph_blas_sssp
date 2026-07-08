@@ -39,7 +39,7 @@ typedef struct {
     char path[MAX_FILENAME];   /** Полный путь к файлу */
     GrB_Index nverts;          /** Количество вершин */
     GrB_Index nedges;          /** Количество рёбер */
-    bool directed;             /** true = ориентированный, false = неориентированный */
+    bool directed; /** true = ориентированный, false = неориентированный */
     bool has_weights;          /** true = взвешенный граф */
     bool has_negative_weights; /** true = есть отрицательные веса */
     bool is_symmetric;         /** true = симметричная матрица */
