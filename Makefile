@@ -233,6 +233,126 @@ run-graph: $(TARGET)
 # Параметры по умолчанию для run-graph
 SOURCE ?= 0
 DELTA ?= 3.0
+DELTAS ?= 0.5 1.0 2.0 3.0 5.0 10.0
+RUNS ?= 30
+
+# ==============================================================================
+# Delta-Stepping sweep
+# ==============================================================================
+
+.PHONY: run-delta-sweep
+run-delta-sweep: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	echo "+-- Delta-Stepping Sweep: $(GRAPH) (source=$(SOURCE)) --+"; \
+	echo "| Algorithm             | Time (ms) | Iters  | Reachable | Status |"; \
+	echo "+-----------------------+-----------+--------+-----------+--------+"; \
+	i=0; \
+	for d in $(DELTAS); do \
+		i=$$((i+1)); \
+		if [ $$i -eq 1 ]; then \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d 2>&1 | awk -v d="$$d" -v first=1 ' \
+				/\[1\/3\]/ { a = sprintf("DS %s=%s", "delta", d); next } \
+				/\[2\/3\]/ { if(first) a = "Algebraic BF"; next } \
+				/\[3\/3\]/ { if(first) a = "Dijkstra"; next } \
+				a != "" && /^[ ]+\[OK\] [0-9]/ { \
+					gsub(/,/,"",$$5); gsub(/,/,"",$$7); \
+					printf "| %-22s | %7.2f | %5d | %9d | [OK]  |\n", a, $$2, $$5, $$7; \
+					a = ""; \
+				}'; \
+		else \
+			$(TARGET) $(GRAPH) $(SOURCE) $$d 2>&1 | awk -v d="$$d" ' \
+				/\[1\/3\]/ { a = sprintf("DS %s=%s", "delta", d); next } \
+				a != "" && /^[ ]+\[OK\] [0-9]/ { \
+					gsub(/,/,"",$$5); gsub(/,/,"",$$7); \
+					printf "| %-22s | %7.2f | %5d | %9d | [OK]  |\n", a, $$2, $$5, $$7; \
+					a = ""; \
+				}'; \
+		fi; \
+	done; \
+	echo "+-----------------------+-----------+--------+-----------+--------+"
+
+.PHONY: bench-delta-sweep
+bench-delta-sweep: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	fname="$(RESULTSDIR)/delta_sweep_$$(date +%Y%m%d_%H%M%S).txt"; \
+	{ \
+	echo "# Delta sweep: $(GRAPH), source=$(SOURCE), $$(date)"; \
+	echo "# DELTAS: $(DELTAS)"; \
+	echo "delta time_ms iters reachable"; \
+	for d in $(DELTAS); do \
+		$(TARGET) $(GRAPH) $(SOURCE) $$d 2>&1 | awk -v d="$$d" ' \
+			/\[1\/3\]/ { a = sprintf("DS %s=%s", "delta", d); next } \
+			a != "" && /^[ ]+\[OK\] [0-9]/ { \
+				gsub(/,/,"",$$5); gsub(/,/,"",$$7); \
+				printf "%s %s %s %s\n", d, $$2, $$5, $$7; \
+				a = ""; \
+			}'; \
+	done; \
+	} > "$$fname"; \
+	echo "Results saved to: $$fname"
+
+# ==============================================================================
+# Статистический бенчмарк
+# ==============================================================================
+
+.PHONY: run-stats
+run-stats: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	$(TARGET) $(GRAPH) $(SOURCE) $(DELTA) $(RUNS)
+
+.PHONY: run-delta-stats
+run-delta-stats: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	echo "+-- Delta-Stepping Stats Sweep: $(GRAPH) (source=$(SOURCE), $(RUNS) runs each) --+"; \
+	echo "Algorithm                  Avg(ms)  Min(ms)  Max(ms)  StdDev"; \
+	echo "--------------------------------------------------------------"; \
+	first=1; \
+	for d in $(DELTAS); do \
+		$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" -v f="$$first" ' \
+			/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0; next } \
+			f == 1 && /Algebraic.*\(GB\)/ { printf "Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next } \
+			f == 1 && /Dijkstra.*\(GB\)/ { printf "Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next }'; \
+		first=0; \
+	done
+
+.PHONY: bench-stats
+bench-stats: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	fname="$(RESULTSDIR)/stats_$$(date +%Y%m%d_%H%M%S).txt"; \
+	$(TARGET) $(GRAPH) $(SOURCE) $(DELTA) $(RUNS) > "$$fname"; \
+	echo "Results saved to: $$fname"
+
+.PHONY: bench-delta-stats
+bench-delta-stats: $(TARGET)
+	@if [ -z "$(GRAPH)" ]; then \
+		echo "Error: specify GRAPH=path/to/graph.mtx"; exit 1; \
+	fi; \
+	fname="$(RESULTSDIR)/delta_stats_$$(date +%Y%m%d_%H%M%S).txt"; \
+	{ \
+	echo "# Delta stats sweep: $(GRAPH), source=$(SOURCE), $$(date)"; \
+	echo "# DELTAS: $(DELTAS), RUNS=$(RUNS)"; \
+	echo "Algorithm                  Avg(ms)  Min(ms)  Max(ms)  StdDev"; \
+	echo "--------------------------------------------------------------"; \
+	first=1; \
+	for d in $(DELTAS); do \
+		$(TARGET) $(GRAPH) $(SOURCE) $$d $(RUNS) 2>&1 | awk -F'|' -v d="$$d" -v f="$$first" ' \
+			/Delta-Stepping.*\(LAG\)/ { printf "DS delta=%-5s            %7.2f %7.2f %7.2f %7.2f\n", d, $$3+0, $$4+0, $$5+0, $$6+0; next } \
+			f == 1 && /Algebraic.*\(GB\)/ { printf "Algebraic BF              %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next } \
+			f == 1 && /Dijkstra.*\(GB\)/ { printf "Dijkstra                  %7.2f %7.2f %7.2f %7.2f\n", $$3+0, $$4+0, $$5+0, $$6+0; next }'; \
+		first=0; \
+	done; \
+	} > "$$fname"; \
+	echo "Results saved to: $$fname"
 
 # ==============================================================================
 # Отладочная сборка
@@ -383,27 +503,35 @@ endif
 
 .PHONY: help
 help:
-	@echo "╔════════════════════════════════════════════════════════════════╗"
-	@echo "║              SSSP GraphBLAS Benchmark - Makefile               ║"
-	@echo "╠════════════════════════════════════════════════════════════════╣"
-	@echo "║  Цели:                                                         ║"
-	@echo "║    make          - Сборка проекта                              ║"
-	@echo "║    make test     - Запуск юнит-тестов                          ║"
-	@echo "║    make run      - Запуск бенчмарка на test.mtx                ║"
-	@echo "║    make run-graph GRAPH=путь - Запуск на указанном графе       ║"
-	@echo "║    make debug    - Отладочная сборка                           ║"
-	@echo "║    make profile  - Сборка для профилирования                   ║"
-	@echo "║    make clean    - Очистка скомпилированных файлов             ║"
-	@echo "║    make distclean - Полная очистка (включая результаты)        ║"
-	@echo "║    make install  - Установка в систему                         ║"
-	@echo "║    make check-deps - Проверка зависимостей                     ║"
-	@echo "║    make help     - Показать эту справку                        ║"
-	@echo "╠════════════════════════════════════════════════════════════════╣"
-	@echo "║  Переменные:                                                   ║"
-	@echo "║    CC=$(CC)                                      ║"
-	@echo "║    CFLAGS=$(CFLAGS)                     ║"
-	@echo "║    LDFLAGS=$(LDFLAGS)                         ║"
-	@echo "╚════════════════════════════════════════════════════════════════╝"
+	@echo "╔═══════════════════════════════════════════════════════════════════════════╗"
+	@echo "║              SSSP GraphBLAS Benchmark - Makefile                          ║"
+	@echo "╠═══════════════════════════════════════════════════════════════════════════╣"
+	@echo "║  Цели:                                                                    ║"
+	@echo "║    make          - Сборка проекта                                         ║"
+	@echo "║    make test     - Запуск юнит-тестов                                     ║"
+	@echo "║    make run      - Запуск бенчмарка на test.mtx                           ║"
+	@echo "║    make run-graph GRAPH=путь - Запуск на указанном графе                  ║"
+	@echo "║    make run-delta-sweep GRAPH=путь - Обзор всех дельт                     ║"
+	@echo "║    make run-stats GRAPH=путь - Стат. бенчмарк (RUNS прогонов)             ║"
+	@echo "║    make run-delta-stats GRAPH=путь - Стат. бенчмарк всех δ                ║"
+	@echo "║    make bench-delta-sweep GRAPH=путь - Сохранить замеры ↓                 ║"
+	@echo "║    make bench-stats GRAPH=путь - Сохранить замеры (30x) ↓                 ║"
+	@echo "║    make bench-delta-stats GRAPH=путь - Сохранить все δ ↓                  ║"
+	@echo "║    make debug    - Отладочная сборка                                      ║"
+	@echo "║    make profile  - Сборка для профилирования                              ║"
+	@echo "║    make clean    - Очистка скомпилированных файлов                        ║"
+	@echo "║    make distclean - Полная очистка (включая результаты)                   ║"
+	@echo "║    make install  - Установка в систему                                    ║"
+	@echo "║    make check-deps - Проверка зависимостей                                ║"
+	@echo "║    make help     - Показать эту справку                                   ║"
+	@echo "╠═══════════════════════════════════════════════════════════════════════════╣"
+	@echo "║  Переменные:                                                              ║"
+	@echo "║    CC=$(CC)                                                                 ║"
+	@echo "║    CFLAGS=$(CFLAGS)                             ║"
+	@echo "║    LDFLAGS=-lgraphblas -llagraph -lm -fopenmp -Wl,-rpath,/usr/local/lib64 ║"
+	@echo "║    DELTAS=$(DELTAS)                                        ║"
+	@echo "║    RUNS=$(RUNS)                                                                ║"
+	@echo "╚═══════════════════════════════════════════════════════════════════════════╝"
 
 # ==============================================================================
 # Конец Makefile

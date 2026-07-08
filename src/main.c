@@ -24,17 +24,18 @@
 
 
 static void print_usage(const char *prog) {
-    printf("Использование: %s <файл.mtx> [source] [delta]\n", prog);
+    printf("Использование: %s <файл.mtx> [source] [delta] [runs]\n", prog);
     printf("\n");
     printf("Аргументы:\n");
-    printf("  <файл.mtx>    Путь к графу в формате Matrix Market [3]\n");
+    printf("  <файл.mtx>    Путь к графу в формате Matrix Market\n");
     printf("  source        Исходная вершина (по умолчанию: 0)\n");
     printf("  delta         Параметр для Delta-Stepping (по умолчанию: 3.0)\n");
+    printf("  runs          Количество запусков для стат. бенчмарка (по умолчанию: 1)\n");
     printf("\n");
     printf("Примеры:\n");
     printf("  %s graphs/test.mtx\n", prog);
     printf("  %s graphs/test.mtx 0 3.0\n", prog);
-    printf("  %s graphs/road-net-CA.mtx 5 5.0\n", prog);
+    printf("  %s graphs/test.mtx 0 3.0 30\n", prog);
     printf("\n");
     printf("Алгоритмы:\n");
     printf("  1. Delta-Stepping (LAGr_SingleSourceShortestPath)\n");
@@ -197,6 +198,80 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
     printf("+--------------------------------------------------------------+\n");
 }
 
+static void print_stats_header(void) {
+    printf("\n+---------------------+----------+----------+----------+----------+\n");
+    printf("| Algorithm           | Avg (ms) | Min (ms) | Max (ms) | StdDev   |\n");
+    printf("+---------------------+----------+----------+----------+----------+\n");
+}
+
+static void print_stats_row(const char *name, double mean, double min, double max, double std) {
+    printf("| %-20s | %8.2f | %8.2f | %8.2f | %8.2f |\n",
+           name, mean, min, max, std);
+}
+
+static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info,
+                                 GrB_Index source, double delta, int runs) {
+    double *times = malloc(runs * sizeof(double));
+    if (!times) {
+        fprintf(stderr, "[!] Out of memory for %d runs\n", runs);
+        return;
+    }
+
+    printf("\n[!] Statistical benchmark: %d runs per algorithm\n", runs);
+    print_stats_header();
+
+    typedef GrB_Info (*AlgFunc)(SSSP_Result*, LAGraph_Graph, GrB_Index, double);
+
+    struct { const char *name; AlgFunc func; double param; bool skip_negative; } algs[] = {
+        { "Delta-Stepping (LAG)", lagraph_sssp,           delta, true },
+        { "Algebraic BF (GB)",    algebraic_bf_graphblas,  0.0,   false },
+        { "Dijkstra (GB)",       dijkstra_graphblas,      0.0,   true },
+    };
+    int nalgs = sizeof(algs) / sizeof(algs[0]);
+
+    for (int a = 0; a < nalgs; a++) {
+        if (algs[a].skip_negative && graph_info->has_negative_weights) {
+            continue;
+        }
+
+        int valid = 0;
+        for (int i = 0; i < runs; i++) {
+            SSSP_Result result;
+            timer_start();
+            GrB_Info info = algs[a].func(&result, graph, source, algs[a].param);
+            double t = timer_stop_ms();
+            if (info == GrB_SUCCESS) {
+                times[valid++] = t;
+            }
+            sssp_result_cleanup(&result);
+        }
+
+        if (valid < 1) {
+            printf("| %-20s |    FAIL    |    FAIL    |    FAIL    |    FAIL    |\n", algs[a].name);
+            continue;
+        }
+
+        double sum = 0, min = times[0], max = times[0];
+        for (int i = 0; i < valid; i++) {
+            sum += times[i];
+            if (times[i] < min) min = times[i];
+            if (times[i] > max) max = times[i];
+        }
+        double mean = sum / valid;
+        double sq = 0;
+        for (int i = 0; i < valid; i++) {
+            double d = times[i] - mean;
+            sq += d * d;
+        }
+        double std = sqrt(sq / valid);
+
+        print_stats_row(algs[a].name, mean, min, max, std);
+    }
+
+    printf("+---------------------+----------+----------+----------+----------+\n");
+    free(times);
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         print_usage(argv[0]);
@@ -206,6 +281,7 @@ int main(int argc, char *argv[]) {
     const char *graph_file = argv[1];
     GrB_Index source = 0;
     double delta = 3.0;
+    int runs = 1;
     
     if (argc > 2) {
         char *endptr;
@@ -226,12 +302,22 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[!] Invalid delta: %s, using 3.0\n", argv[3]);
         }
     }
+
+    if (argc > 4) {
+        char *endptr;
+        long runs_val = strtol(argv[4], &endptr, 10);
+        if (*endptr == '\0' && runs_val >= 1) {
+            runs = (int)runs_val;
+        } else {
+            fprintf(stderr, "[!] Invalid runs: %s, using 1\n", argv[4]);
+        }
+    }
     
     char msg[LAGRAPH_MSG_LEN];
     GrB_Info info = LAGraph_Init(msg);
     if (info != GrB_SUCCESS) {
         fprintf(stderr, "[FAIL] LAGraph_Init failed: %d\n%s\n", info, msg);
-        fprintf(stderr, "   Убедитесь, что GraphBLAS и LAGraph установлены\n");
+        fprintf(stderr, "   убедитесь, что GraphBLAS и LAGraph установлены\n");
         return 1;
     }
     
@@ -251,6 +337,14 @@ int main(int argc, char *argv[]) {
         LAGraph_Delete(&graph, msg);
         LAGraph_Finalize(msg);
         return 1;
+    }
+
+    if (runs > 1) {
+        print_benchmark_header(&graph_info, source, delta);
+        run_stats_benchmark(graph, &graph_info, source, delta, runs);
+        LAGraph_Delete(&graph, msg);
+        LAGraph_Finalize(msg);
+        return 0;
     }
     
     print_benchmark_header(&graph_info, source, delta);
