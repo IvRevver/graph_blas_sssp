@@ -7,24 +7,21 @@ runs:
     - name: Install apt dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          libsuitesparse-dev cmake build-essential git
+        sudo apt-get install -y \
+          libsuitesparse-dev libgraphblas-dev cmake build-essential git
       shell: bash
 
     - name: Build LAGraph (if not in apt)
       run: |
         if ldconfig -p | grep -q liblagraph; then
           echo "LAGraph found in system"
-          exit 0
+        else
+          if [ ! -d "/tmp/LAGraph" ] || [ ! -f "/tmp/LAGraph/CMakeLists.txt" ]; then
+            git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+          fi
+          cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo cmake --build /tmp/LAGraph/build --target install -j$(nproc)
+          sudo ldconfig
         fi
-        if [ ! -d "/tmp/LAGraph" ] || [ ! -f "/tmp/LAGraph/CMakeLists.txt" ]; then
-          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
-        fi
-        mkdir -p /tmp/LAGraph/build
-        cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr/local
-        make -j$(nproc) -C /tmp/LAGraph/build
-        sudo make -C /tmp/LAGraph/build install
-        sudo ldconfig
       shell: bash
