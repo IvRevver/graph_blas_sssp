@@ -1,0 +1,20 @@
+name: Setup GraphBLAS and LAGraph
+description: Install SuiteSparse GraphBLAS (apt) and build LAGraph from source
+
+runs:
+  using: composite
+  steps:
+    - name: Install apt dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libsuitesparse-dev cmake build-essential git
+      shell: bash
+
+    - name: Build and install LAGraph
+      run: |
+        git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
+        make -j$(nproc) -C /tmp/LAGraph
+        sudo make -C /tmp/LAGraph install
+        sudo ldconfig
+      shell: bash
