@@ -7,13 +7,13 @@
 #include "GraphBLAS.h"
 #include "LAGraph.h"
 
-#include "../src/algorithms/sssp_common.h"
-#include "../src/algorithms/lagraph_sssp.h"
-#include "../src/algorithms/algebraic_bf_graphblas.h"
-#include "../src/algorithms/dijkstra_graphblas.h"
-#include "../src/graph/graph_loader.h"
-#include "../src/utils/timer.h"
-#include "../src/utils/validator.h"
+#include "algorithms/sssp_common.h"
+#include "algorithms/lagraph_sssp.h"
+#include "algorithms/algebraic_bf_graphblas.h"
+#include "algorithms/dijkstra_graphblas.h"
+#include "graph/graph_loader.h"
+#include "utils/timer.h"
+#include "utils/validator.h"
 
 #define TEST_GRAPH_PATH "tests/test_graph.mtx"
 #define EPSILON 1e-6

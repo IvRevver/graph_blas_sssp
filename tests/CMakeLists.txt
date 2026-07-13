@@ -1,17 +1,4 @@
-set(SOURCES
-    test_all.c
-    ${CMAKE_SOURCE_DIR}/src/algorithms/sssp_common.c
-    ${CMAKE_SOURCE_DIR}/src/algorithms/lagraph_sssp.c
-    ${CMAKE_SOURCE_DIR}/src/algorithms/algebraic_bf_graphblas.c
-    ${CMAKE_SOURCE_DIR}/src/algorithms/dijkstra_graphblas.c
-    ${CMAKE_SOURCE_DIR}/src/graph/graph_loader.c
-    ${CMAKE_SOURCE_DIR}/src/utils/timer.c
-    ${CMAKE_SOURCE_DIR}/src/utils/validator.c
-)
-
-add_executable(test_sssp ${SOURCES})
-
-target_include_directories(test_sssp PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_executable(test_sssp test_all.c)
 
 target_compile_options(test_sssp PRIVATE
     -Wall -Wextra -Wpedantic
@@ -23,11 +10,6 @@ target_link_options(test_sssp PRIVATE
     $<$<CONFIG:Debug>:-fsanitize=address -fsanitize=undefined>
 )
 
-target_link_libraries(test_sssp PRIVATE
-    GraphBLAS::GraphBLAS
-    SuiteSparse::LAGraph
-    OpenMP::OpenMP_C
-    m
-)
+target_link_libraries(test_sssp PRIVATE sssp_algorithms)
 
 add_test(NAME sssp_tests COMMAND test_sssp WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
