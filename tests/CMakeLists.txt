@@ -1,5 +1,3 @@
-include_directories(${CMAKE_SOURCE_DIR}/src)
-
 set(SOURCES
     test_all.c
     ${CMAKE_SOURCE_DIR}/src/algorithms/sssp_common.c
@@ -12,6 +10,19 @@ set(SOURCES
 )
 
 add_executable(test_sssp ${SOURCES})
+
+target_include_directories(test_sssp PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+target_compile_options(test_sssp PRIVATE
+    -Wall -Wextra -Wpedantic
+    $<$<CONFIG:Debug>:-g -O0 -fsanitize=address -fsanitize=undefined>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+)
+
+target_link_options(test_sssp PRIVATE
+    $<$<CONFIG:Debug>:-fsanitize=address -fsanitize=undefined>
+)
+
 target_link_libraries(test_sssp PRIVATE
     GraphBLAS::GraphBLAS
     SuiteSparse::LAGraph
