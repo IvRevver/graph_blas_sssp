@@ -32,6 +32,15 @@
 #define CSV_DIR "results"
 
 
+typedef struct {
+    const char *graph_file;
+    GrB_Index source;
+    double delta;
+    int runs;
+    bool full_bench;
+} BenchConfig;
+
+
 static void ensure_results_dir(void) {
 #ifdef _WIN32
     if (_mkdir(CSV_DIR) != 0 && errno != EEXIST)
@@ -478,30 +487,30 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
 }
 
 
-int main(int argc, char *argv[]) {
+static bool parse_args(int argc, char *argv[], BenchConfig *cfg) {
     if (argc < 2) {
         print_usage(argv[0]);
-        return 1;
+        return false;
     }
 
-    const char *graph_file = argv[1];
-    GrB_Index source = 0;
-    double delta = 3.0;
-    int runs = 1;
-    bool full_bench = false;
+    cfg->graph_file = argv[1];
+    cfg->source = 0;
+    cfg->delta = 3.0;
+    cfg->runs = 1;
+    cfg->full_bench = false;
     int arg_idx = 2;
 
     if (argc > 2 && (strcmp(argv[2], "-b") == 0 || strcmp(argv[2], "--full-bench") == 0)) {
-        full_bench = true;
+        cfg->full_bench = true;
         arg_idx = 3;
-        delta = 0.0;
+        cfg->delta = 0.0;
     }
 
     if (argc > arg_idx) {
         char *endptr;
         long source_val = strtol(argv[arg_idx], &endptr, 10);
         if (*endptr == '\0' && source_val >= 0) {
-            source = (GrB_Index)source_val;
+            cfg->source = (GrB_Index)source_val;
             arg_idx++;
         } else {
             fprintf(stderr, "[!] Invalid source: %s, using 0\n", argv[arg_idx]);
@@ -509,11 +518,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (!full_bench && argc > arg_idx) {
+    if (!cfg->full_bench && argc > arg_idx) {
         char *endptr;
         double delta_val = strtod(argv[arg_idx], &endptr);
         if (*endptr == '\0' && delta_val > 0) {
-            delta = delta_val;
+            cfg->delta = delta_val;
             arg_idx++;
         } else {
             fprintf(stderr, "[!] Invalid delta: %s, using 3.0\n", argv[arg_idx]);
@@ -525,67 +534,105 @@ int main(int argc, char *argv[]) {
         char *endptr;
         long runs_val = strtol(argv[arg_idx], &endptr, 10);
         if (*endptr == '\0' && runs_val >= 1) {
-            runs = (int)runs_val;
+            cfg->runs = (int)runs_val;
         } else {
             fprintf(stderr, "[!] Invalid runs: %s, using 1\n", argv[arg_idx]);
         }
     }
 
+    return true;
+}
+
+
+static bool init_and_load(const char *graph_file, GrB_Index source,
+                          LAGraph_Graph *graph, GraphInfo *graph_info) {
     char msg[LAGRAPH_MSG_LEN];
     GrB_Info info = LAGraph_Init(msg);
     if (info != GrB_SUCCESS) {
         fprintf(stderr, "[FAIL] LAGraph_Init failed: %d\n%s\n", info, msg);
         fprintf(stderr, "   убедитесь, что GraphBLAS и LAGraph установлены\n");
-        return 1;
+        return false;
     }
 
-    LAGraph_Graph graph = NULL;
-    GraphInfo graph_info;
-
-    info = graph_load(&graph, graph_file, &graph_info);
+    *graph = NULL;
+    info = graph_load(graph, graph_file, graph_info);
     if (info != GrB_SUCCESS) {
         fprintf(stderr, "[FAIL] Could not load graph: %d\n", info);
         LAGraph_Finalize(msg);
-        return 1;
+        return false;
     }
 
-    if (source >= graph_info.nverts) {
+    if (source >= graph_info->nverts) {
         fprintf(stderr, "[FAIL] Source vertex %llu out of range [0, %llu)\n",
-                (unsigned long long)source, (unsigned long long)graph_info.nverts);
-        LAGraph_Delete(&graph, msg);
+                (unsigned long long)source, (unsigned long long)graph_info->nverts);
+        LAGraph_Delete(graph, msg);
         LAGraph_Finalize(msg);
+        return false;
+    }
+
+    return true;
+}
+
+
+int main(int argc, char *argv[]) {
+    BenchConfig cfg;
+    if (!parse_args(argc, argv, &cfg))
         return 1;
-    }
 
-    if (full_bench) {
-        if (runs < 2)
-            runs = 30;
-        run_full_benchmark(graph, &graph_info, source, runs);
-        LAGraph_Delete(&graph, msg);
-        LAGraph_Finalize(msg);
-        return 0;
-    }
+    LAGraph_Graph graph = NULL;
+    GraphInfo graph_info;
+    if (!init_and_load(cfg.graph_file, cfg.source, &graph, &graph_info))
+        return 1;
 
-    if (runs > 1) {
-        print_benchmark_header(&graph_info, source, delta);
-        run_stats_benchmark(graph, &graph_info, source, delta, runs);
-        LAGraph_Delete(&graph, msg);
-        LAGraph_Finalize(msg);
-        return 0;
-    }
+    if (cfg.full_bench)
+        return run_full_bench_mode(graph, &graph_info, cfg.source, cfg.runs);
 
-    print_benchmark_header(&graph_info, source, delta);
+    if (cfg.runs > 1)
+        return run_stats_bench_mode(graph, &graph_info, cfg.source, cfg.delta, cfg.runs);
+
+    return run_single_mode(graph, &graph_info, cfg.source, cfg.delta);
+}
+
+
+static int run_full_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                               GrB_Index source, int runs) {
+    char msg[LAGRAPH_MSG_LEN];
+    if (runs < 2)
+        runs = 30;
+    run_full_benchmark(graph, graph_info, source, runs);
+    LAGraph_Delete(&graph, msg);
+    LAGraph_Finalize(msg);
+    return 0;
+}
+
+
+static int run_stats_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                                GrB_Index source, double delta, int runs) {
+    char msg[LAGRAPH_MSG_LEN];
+    print_benchmark_header(graph_info, source, delta);
+    run_stats_benchmark(graph, graph_info, source, delta, runs);
+    LAGraph_Delete(&graph, msg);
+    LAGraph_Finalize(msg);
+    return 0;
+}
+
+
+static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                           GrB_Index source, double delta) {
+    char msg[LAGRAPH_MSG_LEN];
+    print_benchmark_header(graph_info, source, delta);
 
     SSSP_Result results[MAX_ALGORITHMS];
     int count = 0;
     int step = 1;
+    GrB_Info info;
 
-    if (graph_info.has_negative_weights) {
+    if (graph_info->has_negative_weights) {
         printf(
             "\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
     }
 
-    if (!graph_info.has_negative_weights) {
+    if (!graph_info->has_negative_weights) {
         printf("\n[%d/3] LAGraph SSSP (Delta-Stepping)...\n", step++);
         fflush(stdout);
 
@@ -617,7 +664,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if (!graph_info.has_negative_weights) {
+    if (!graph_info->has_negative_weights) {
         printf("\n[%d/3] Dijkstra...\n", step++);
         fflush(stdout);
 
@@ -648,7 +695,7 @@ int main(int argc, char *argv[]) {
             csv_count++;
         }
         ensure_results_dir();
-        write_csv_table(graph_info.name, names, means, mins, maxs, stds, csv_count);
+        write_csv_table(graph_info->name, names, means, mins, maxs, stds, csv_count);
     }
 
     bool validation_passed = validate_results(results, count);
