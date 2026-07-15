@@ -35,12 +35,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Cache GraphBLAS source
-        uses: actions/cache@v6
-        with:
-          path: GraphBLAS/
-          key: graphblas-v10.3.1-${{ runner.os }}
-
       - name: Cache LAGraph source
         uses: actions/cache@v6
         with:
@@ -64,23 +58,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libsuitesparse-dev
-
-      - name: Build and install GraphBLAS
-        run: |
-          if [ -f "/usr/local/lib/libgraphblas.so" ]; then
-            echo "GraphBLAS already installed"
-          elif [ -d "GraphBLAS" ] && [ -f "GraphBLAS/Makefile" ]; then
-            echo "Building GraphBLAS from cached source"
-            make -j$(nproc) -C GraphBLAS
-            sudo make -C GraphBLAS install
-            sudo ldconfig
-          else
-            echo "Cloning GraphBLAS v10.3.1"
-            git clone --depth 1 --branch v10.3.1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
-            make -j$(nproc) -C GraphBLAS
-            sudo make -C GraphBLAS install
-            sudo ldconfig
-          fi
 
       - name: Build and install LAGraph
         run: |
