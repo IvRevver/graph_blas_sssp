@@ -36,10 +36,6 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
     if (info != GrB_SUCCESS)
         goto cleanup;
 
-    for (GrB_Index i = 0; i < n; i++) {
-        GrB_Vector_setElement(result->distances, INF, i);
-        GrB_Vector_setElement(result->predecessors, (uint64_t)-1, i);
-    }
     GrB_Vector_setElement(result->distances, 0.0, source);
     GrB_Vector_setElement(result->predecessors, source, source);
 
@@ -56,7 +52,6 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
         goto cleanup;
 
     /* Основной цикл Bellman-Ford: n-1 итераций */
-    bool converged = false;
     for (GrB_Index k = 1; k < n; k++) {
         result->iterations = k;
 
@@ -65,29 +60,15 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
         if (info != GrB_SUCCESS)
             break;
 
-        /* Проверка сходимости: обновляем только если расстояние уменьшилось */
-        converged = true;
-        for (GrB_Index i = 0; i < n; i++) {
-            double d_old, d_new;
-            GrB_Info info_old = GrB_Vector_extractElement(&d_old, result->distances, i);
-            GrB_Info info_new = GrB_Vector_extractElement(&d_new, dtmp, i);
-
-            if (info_new == GrB_SUCCESS) {
-                if (info_old != GrB_SUCCESS || d_new < d_old) {
-                    GrB_Vector_setElement(result->distances, d_new, i);
-                    converged = false;
-                }
-            }
-        }
-
-        if (converged) {
+        /* distances = min(distances, dtmp) — обновляем все улучшения одной операцией */
+        info = GrB_eWiseAdd(result->distances, NULL, NULL, GrB_MIN_FP64,
+                            result->distances, dtmp, NULL);
+        if (info != GrB_SUCCESS)
             break;
-        }
     }
 
     GrB_Vector_nvals(&result->reachable_vertices, result->distances);
     result->success = true;
-    result->iterations = converged ? result->iterations : (int)(n - 1);
 
 cleanup:
     GrB_free(&dtmp);

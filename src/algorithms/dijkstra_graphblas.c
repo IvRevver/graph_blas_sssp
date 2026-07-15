@@ -50,8 +50,30 @@ static void pq_free(PriorityQueue *pq) {
 }
 
 static void pq_push(PriorityQueue *pq, GrB_Index v, double priority) {
-    if (!pq || pq->size >= pq->capacity)
+    if (!pq)
         return;
+
+    if (pq->size >= pq->capacity) {
+        GrB_Index new_cap = pq->capacity ? pq->capacity * 2 : 16;
+        GrB_Index *old_v = pq->vertices;
+        double *old_p = pq->priorities;
+        GrB_Index old_cap = pq->capacity;
+
+        pq->vertices = realloc(pq->vertices, sizeof(GrB_Index) * new_cap);
+        if (!pq->vertices) {
+            pq->vertices = old_v;
+            return;
+        }
+        pq->priorities = realloc(pq->priorities, sizeof(double) * new_cap);
+        if (!pq->priorities) {
+            free(pq->vertices);
+            pq->vertices = old_v;
+            pq->priorities = old_p;
+            pq->capacity = old_cap;
+            return;
+        }
+        pq->capacity = new_cap;
+    }
 
     GrB_Index i = pq->size++;
     pq->vertices[i] = v;
@@ -142,20 +164,12 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
     if (info != GrB_SUCCESS)
         goto cleanup;
 
-    for (GrB_Index i = 0; i < n; i++) {
-        GrB_Vector_setElement(result->distances, INF, i);
-        GrB_Vector_setElement(result->predecessors, (uint64_t)-1, i);
-    }
     GrB_Vector_setElement(result->distances, 0.0, source);
     GrB_Vector_setElement(result->predecessors, source, source);
 
     info = GrB_Vector_new(&visited, GrB_BOOL, n);
     if (info != GrB_SUCCESS)
         goto cleanup;
-
-    for (GrB_Index i = 0; i < n; i++) {
-        GrB_Vector_setElement(visited, false, i);
-    }
 
     info = GrB_Monoid_new(&min_monoid, GrB_MIN_FP64, (double)INFINITY);
     if (info != GrB_SUCCESS)
@@ -175,6 +189,30 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
 
     result->iterations = 0;
 
+    /* Переиспользуемые векторы (создаём один раз, чистим на каждой итерации) */
+    GrB_Vector u_mask = NULL;
+    GrB_Vector d_neighbors = NULL;
+    info = GrB_Vector_new(&u_mask, GrB_FP64, n);
+    if (info != GrB_SUCCESS)
+        goto cleanup;
+    info = GrB_Vector_new(&d_neighbors, GrB_FP64, n);
+    if (info != GrB_SUCCESS)
+        goto cleanup;
+
+    /* Массивы для extractTuples (макс. размер = n) */
+    GrB_Index *idxs = NULL;
+    double *weights = NULL;
+    idxs = malloc(sizeof(GrB_Index) * n);
+    weights = malloc(sizeof(double) * n);
+    if (!idxs || !weights) {
+        info = GrB_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+    if (!idxs || !weights) {
+        info = GrB_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+
     /* Основной цикл Dijkstra */
     while (1) {
         GrB_Index u;
@@ -186,7 +224,7 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
         /* Проверка на повторное посещение */
         bool is_visited;
         info = GrB_Vector_extractElement(&is_visited, visited, u);
-        if (info == GrB_SUCCESS && is_visited)
+        if (info == GrB_SUCCESS)
             continue;
 
         info = GrB_Vector_setElement(visited, true, u);
@@ -195,59 +233,47 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
 
         result->iterations++;
 
-        /* Маска для вершины u с текущим расстоянием */
-        GrB_Vector u_mask = NULL;
-        info = GrB_Vector_new(&u_mask, GrB_FP64, n);
-        if (info != GrB_SUCCESS)
-            break;
+        /* Очистка переиспользуемых векторов */
+        GrB_Vector_clear(u_mask);
+        GrB_Vector_clear(d_neighbors);
 
         double dist_u;
         info = GrB_Vector_extractElement(&dist_u, result->distances, u);
-        if (info != GrB_SUCCESS) {
-            GrB_free(&u_mask);
+        if (info != GrB_SUCCESS)
             break;
-        }
         info = GrB_Vector_setElement(u_mask, dist_u, u);
-        if (info != GrB_SUCCESS) {
-            GrB_free(&u_mask);
+        if (info != GrB_SUCCESS)
             break;
-        }
 
         /* Релаксация рёбер через vxm */
-        GrB_Vector d_neighbors = NULL;
-        info = GrB_Vector_new(&d_neighbors, GrB_FP64, n);
-        if (info != GrB_SUCCESS) {
-            GrB_free(&u_mask);
-            break;
-        }
-
         info = GrB_vxm(d_neighbors, NULL, NULL, minplus_semiring, u_mask, graph->A, NULL);
+        if (info != GrB_SUCCESS)
+            break;
 
-        if (info == GrB_SUCCESS) {
-            /* Обновление расстояний и предшественников */
-            for (GrB_Index v = 0; v < n; v++) {
-                double old_dist, new_dist;
-                GrB_Info info1 = GrB_Vector_extractElement(&old_dist, result->distances, v);
-                GrB_Info info2 = GrB_Vector_extractElement(&new_dist, d_neighbors, v);
-
-                if (info1 == GrB_SUCCESS && info2 == GrB_SUCCESS) {
-                    if (new_dist < old_dist) {
-                        GrB_Vector_setElement(result->distances, new_dist, v);
-                        GrB_Vector_setElement(result->predecessors, (uint64_t)u, v);
-                        pq_push(pq, v, new_dist);
-                    }
-                }
+        /* Обновление по ненулевым элементам d_neighbors */
+        GrB_Index dn_nvals;
+        GrB_Vector_nvals(&dn_nvals, d_neighbors);
+        GrB_Vector_extractTuples(idxs, weights, &dn_nvals, d_neighbors);
+        for (GrB_Index k = 0; k < dn_nvals; k++) {
+            GrB_Index v = idxs[k];
+            double old_dist;
+            GrB_Info info1 = GrB_Vector_extractElement(&old_dist, result->distances, v);
+            if (info1 != GrB_SUCCESS || weights[k] < old_dist) {
+                GrB_Vector_setElement(result->distances, weights[k], v);
+                GrB_Vector_setElement(result->predecessors, (uint64_t)u, v);
+                pq_push(pq, v, weights[k]);
             }
         }
-
-        GrB_free(&u_mask);
-        GrB_free(&d_neighbors);
     }
 
     GrB_Vector_nvals(&result->reachable_vertices, result->distances);
     result->success = true;
 
 cleanup:
+    free(idxs);
+    free(weights);
+    GrB_free(&u_mask);
+    GrB_free(&d_neighbors);
     pq_free(pq);
     GrB_free(&visited);
     GrB_free(&minplus_semiring);
