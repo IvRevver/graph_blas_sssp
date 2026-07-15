@@ -1,5 +1,5 @@
 # SSSP GraphBLAS
-[![Build & Test](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml/badge.svg)](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/build.yml)
+[![CI](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/ci.yml/badge.svg)](https://github.com/IvRevver/graph_blas_sssp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## О проекте
@@ -27,6 +27,12 @@
 | 1 | Delta-Stepping | LAGraph (`LAGr_SingleSourceShortestPath`) | `src/algorithms/lagraph_sssp.c` | ❌ |
 | 2 | Algebraic Bellman-Ford | Raw GraphBLAS (min-plus) | `src/algorithms/algebraic_bf_graphblas.c` | ✅ |
 | 3 | Dijkstra | Raw GraphBLAS + priority queue | `src/algorithms/dijkstra_graphblas.c` | ❌ |
+
+### Особенности реализации
+
+- **Разреженные векторы**: инициализируется только source-вершина; остальные структурно отсутствуют до первого открытия. `GrB_vxm` с min-plus semiring обрабатывает только существующие элементы.
+- **Bellman-Ford**: `GrB_eWiseAdd` с `GrB_MIN_FP64` заменяет ручной цикл проверки сходимости — одна операция над разрежёнными структурами вместо `O(n)` извлечений.
+- **Dijkstra**: `GrB_Vector_extractTuples` возвращает только ненулевые элементы результата `GrB_vxm` (≪ n). Маски и `d_neighbors` переиспользуются через `GrB_Vector_clear` вместо аллокации на каждой итерации. Приоритетная очередь динамически растёт при переполнении.`
 
 ---
 
@@ -149,7 +155,7 @@ make test
 
 ## Валидация
 
-Модуль `src/utils/validator.c` (`VALIDATOR_EPSILON = 1e-6`):
+Модуль `benchmarks/utils/validator.c` (`VALIDATOR_EPSILON = 1e-6`):
 
 | Функция | Проверка |
 |---------|----------|
@@ -162,18 +168,21 @@ make test
 
 ```
 ├── src/
+│   └── algorithms/
+│       ├── ssp_common.{h,c}
+│       ├── lagraph_sssp.{h,c}
+│       ├── algebraic_bf_graphblas.{h,c}
+│       └── dijkstra_graphblas.{h,c}
+├── benchmarks/
 │   ├── main.c
-│   ├── algorithms/
-│   │   ├── ssp_common.{h,c}
-│   │   ├── lagraph_sssp.{h,c}
-│   │   ├── algebraic_bf_graphblas.{h,c}
-│   │   └── dijkstra_graphblas.{h,c}
+│   ├── CMakeLists.txt
 │   ├── graph/
 │   │   └── graph_loader.{h,c}
 │   └── utils/
 │       ├── timer.{h,c}
 │       └── validator.{h,c}
 ├── tests/
+│   ├── CMakeLists.txt
 │   ├── test_all.c
 │   └── test_graph.mtx
 ├── graphs/
@@ -183,6 +192,9 @@ make test
 ├── Makefile
 └── .gitignore
 ```
+
+`src/` содержит только алгоритмический код (библиотека `sssp_algorithms`).
+`benchmarks/` — загрузка графов, замеры, валидация (`sssp_benchmark`).
 
 ---
 
