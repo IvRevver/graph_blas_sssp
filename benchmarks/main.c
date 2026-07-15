@@ -87,6 +87,34 @@ static void write_csv_table(const char *graph_name, const char *algorithms[], do
 }
 
 
+static void write_raw_csv(const char *graph_name, const char *alg_name,
+                           const double *times, int count) {
+    static bool first_call = true;
+    char safe_name[256];
+    sanitize_filename(graph_name, safe_name, sizeof(safe_name));
+
+    char path[512];
+    snprintf(path, sizeof(path), CSV_DIR "/%s_raw.csv", safe_name);
+
+    FILE *f = fopen(path, first_call ? "w" : "a");
+    if (!f) {
+        fprintf(stderr, "[!] Could not open %s for writing\n", path);
+        return;
+    }
+
+    if (first_call) {
+        fprintf(f, "graph,algorithm,run,time_ms\n");
+        first_call = false;
+    }
+
+    for (int i = 0; i < count; i++) {
+        fprintf(f, "%s,%s,%d,%.2f\n", graph_name, alg_name, i, times[i]);
+    }
+
+    fclose(f);
+}
+
+
 static void print_usage(const char *prog) {
     printf("Usage: %s <file.mtx> [source] [delta] [runs]\n", prog);
     printf("       %s <file.mtx> -b [source] [runs]\n", prog);
@@ -334,6 +362,10 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
             means[count] = mins[count] = maxs[count] = stds[count] = 0.0;
         }
 
+        if (valid > 0) {
+            write_raw_csv(graph_info->name, algs[a].name, times, valid);
+        }
+
         names[count] = algs[a].name;
         count++;
     }
@@ -374,8 +406,9 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
 
 static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Index, double),
                           double param, LAGraph_Graph graph, GrB_Index source, int runs,
-                          bool skip_negative, GraphInfo *graph_info, double *out_mean,
-                          double *out_min, double *out_max, double *out_std) {
+                          bool skip_negative, GraphInfo *graph_info,
+                          const char *graph_name, const char *alg_name,
+                          double *out_mean, double *out_min, double *out_max, double *out_std) {
     if (skip_negative && graph_info->has_negative_weights)
         return false;
 
@@ -417,6 +450,7 @@ static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Ind
     }
     *out_std = sqrt(sq / valid);
 
+    write_raw_csv(graph_name, alg_name, times, valid);
     free(times);
     return true;
 }
@@ -435,6 +469,7 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
         if (d == 0) {
             double m, mn, mx, s;
             if (compute_stats(algebraic_bf_graphblas, 0.0, graph, source, runs, false, graph_info,
+                              graph_info->name, "Algebraic BF",
                               &m, &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Algebraic BF");
                 means[n] = m;
@@ -443,7 +478,8 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
                 stds[n] = s;
                 n++;
             }
-            if (compute_stats(dijkstra_graphblas, 0.0, graph, source, runs, true, graph_info, &m,
+            if (compute_stats(dijkstra_graphblas, 0.0, graph, source, runs, true, graph_info,
+                              graph_info->name, "Dijkstra", &m,
                               &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Dijkstra");
                 means[n] = m;
@@ -457,7 +493,8 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
         char ds_label[64];
         snprintf(ds_label, sizeof(ds_label), "DS delta=%.1f", deltas[d]);
         double m, mn, mx, s;
-        if (compute_stats(lagraph_sssp, deltas[d], graph, source, runs, true, graph_info, &m, &mn,
+        if (compute_stats(lagraph_sssp, deltas[d], graph, source, runs, true, graph_info,
+                          graph_info->name, ds_label, &m, &mn,
                           &mx, &s)) {
             snprintf(labels[n], sizeof(labels[n]), "%s", ds_label);
             means[n] = m;
@@ -574,6 +611,13 @@ static bool init_and_load(const char *graph_file, GrB_Index source,
 }
 
 
+static int run_full_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                               GrB_Index source, int runs);
+static int run_stats_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                                GrB_Index source, double delta, int runs);
+static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info,
+                           GrB_Index source, double delta);
+
 int main(int argc, char *argv[]) {
     BenchConfig cfg;
     if (!parse_args(argc, argv, &cfg))
@@ -678,6 +722,11 @@ static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info,
         } else {
             printf("      [FAIL] error: %d\n", info);
         }
+    }
+
+    for (int i = 0; i < count; i++) {
+        double single = results[i].time_ms;
+        write_raw_csv(graph_info->name, results[i].name, &single, 1);
     }
 
     print_results(results, count);
