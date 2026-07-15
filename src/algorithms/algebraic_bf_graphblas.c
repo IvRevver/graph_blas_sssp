@@ -61,8 +61,8 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
             break;
 
         /* distances = min(distances, dtmp) — обновляем все улучшения одной операцией */
-        info = GrB_eWiseAdd(result->distances, NULL, NULL, GrB_MIN_FP64,
-                            result->distances, dtmp, NULL);
+        info = GrB_eWiseAdd(result->distances, NULL, NULL, GrB_MIN_FP64, result->distances, dtmp,
+                            NULL);
         if (info != GrB_SUCCESS)
             break;
     }
