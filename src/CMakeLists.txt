@@ -3,9 +3,6 @@ set(SOURCES
     algorithms/lagraph_sssp.c
     algorithms/algebraic_bf_graphblas.c
     algorithms/dijkstra_graphblas.c
-    graph/graph_loader.c
-    utils/timer.c
-    utils/validator.c
 )
 
 add_library(sssp_algorithms STATIC ${SOURCES})

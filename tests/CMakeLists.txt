@@ -1,4 +1,10 @@
-add_executable(test_sssp test_all.c)
+add_executable(test_sssp test_all.c
+    ${CMAKE_SOURCE_DIR}/benchmarks/graph/graph_loader.c
+    ${CMAKE_SOURCE_DIR}/benchmarks/utils/timer.c
+    ${CMAKE_SOURCE_DIR}/benchmarks/utils/validator.c
+)
+
+target_include_directories(test_sssp PRIVATE ${CMAKE_SOURCE_DIR}/benchmarks)
 
 target_compile_options(test_sssp PRIVATE
     -Wall -Wextra -Wpedantic

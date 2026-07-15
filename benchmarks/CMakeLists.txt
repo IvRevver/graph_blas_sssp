@@ -1,4 +1,8 @@
-add_executable(sssp_benchmark main.c)
+add_executable(sssp_benchmark main.c
+    graph/graph_loader.c
+    utils/timer.c
+    utils/validator.c
+)
 
 target_compile_options(sssp_benchmark PRIVATE
     -Wall -Wextra -Wpedantic
@@ -19,12 +23,6 @@ set(RUNS "30" CACHE STRING "Number of benchmark iterations")
 
 add_custom_target(run
     COMMAND sssp_benchmark ${GRAPH} ${SOURCE} ${DELTA}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    DEPENDS sssp_benchmark
-)
-
-add_custom_target(run-stats
-    COMMAND sssp_benchmark ${GRAPH} ${SOURCE} ${DELTA} ${RUNS}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     DEPENDS sssp_benchmark
 )
