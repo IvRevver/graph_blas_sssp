@@ -10,7 +10,7 @@ on:
 jobs:
   formatting:
     name: Check formatting
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -28,7 +28,7 @@ jobs:
 
   debug-build:
     name: Debug build and tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: formatting
 
     steps:
@@ -57,7 +57,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libsuitesparse-dev
+            libsuitesparse-dev libgraphblas-dev
 
       - name: Build and install LAGraph
         run: |
@@ -67,7 +67,8 @@ jobs:
             echo "Building LAGraph from cached source"
             cmake -S LAGraph -B LAGraph/build \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/usr/local
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu
             make -j$(nproc) -C LAGraph/build
             sudo make -C LAGraph/build install
             sudo ldconfig
@@ -76,7 +77,8 @@ jobs:
             git clone --depth 1 --branch v1.2.1 https://github.com/GraphBLAS/LAGraph.git
             cmake -S LAGraph -B LAGraph/build \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/usr/local
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu
             make -j$(nproc) -C LAGraph/build
             sudo make -C LAGraph/build install
             sudo ldconfig
