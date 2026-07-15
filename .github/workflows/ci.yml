@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install clang-format
         run: sudo apt-get install -y clang-format
@@ -33,56 +33,77 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache GraphBLAS source
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: GraphBLAS/
-          key: graphblas-src-${{ runner.os }}-v1
-          restore-keys: graphblas-src-${{ runner.os }}-
+          key: graphblas-v10.3.1-${{ runner.os }}
+
+      - name: Cache LAGraph source
+        uses: actions/cache@v6
+        with:
+          path: LAGraph/
+          key: lagraph-v1.2.1-${{ runner.os }}
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-${{ runner.os }}
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
-          path: build-debug/CMakeFiles
-          key: cmake-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', 'src/*.c', 'tests/*.c') }}
+          path: build/CMakeFiles
+          key: cmake-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', 'src/**/*.c', 'tests/*.c', 'benchmarks/**/*.c') }}
           restore-keys: cmake-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libsuitesparse-dev cmake build-essential
+            libsuitesparse-dev
 
       - name: Build and install GraphBLAS
         run: |
-          git clone --depth 1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git /tmp/GraphBLAS
-          mkdir -p /tmp/GraphBLAS/build
-          cmake -S /tmp/GraphBLAS -B /tmp/GraphBLAS/build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DBUILD_TESTING=OFF
-          make -j$(nproc) -C /tmp/GraphBLAS/build
-          sudo make -C /tmp/GraphBLAS/build install
-          sudo ldconfig
+          if [ -f "/usr/local/lib/libgraphblas.so" ]; then
+            echo "GraphBLAS already installed"
+          elif [ -d "GraphBLAS" ] && [ -f "GraphBLAS/Makefile" ]; then
+            echo "Building GraphBLAS from cached source"
+            make -j$(nproc) -C GraphBLAS
+            sudo make -C GraphBLAS install
+            sudo ldconfig
+          else
+            echo "Cloning GraphBLAS v10.3.1"
+            git clone --depth 1 --branch v10.3.1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+            make -j$(nproc) -C GraphBLAS
+            sudo make -C GraphBLAS install
+            sudo ldconfig
+          fi
 
       - name: Build and install LAGraph
         run: |
-          GRAPHBLAS_DIR=$(find /usr -name "GraphBLASConfig.cmake" -type f 2>/dev/null | head -1 | xargs dirname)
-          if [ -z "$GRAPHBLAS_DIR" ]; then
-            echo "GraphBLASConfig.cmake not found" 1>&2
-            exit 1
+          if [ -f "/usr/local/lib/liblagraph.so" ]; then
+            echo "LAGraph already installed"
+          elif [ -d "LAGraph" ] && [ -f "LAGraph/CMakeLists.txt" ]; then
+            echo "Building LAGraph from cached source"
+            cmake -S LAGraph -B LAGraph/build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/usr/local
+            make -j$(nproc) -C LAGraph/build
+            sudo make -C LAGraph/build install
+            sudo ldconfig
+          else
+            echo "Cloning LAGraph v1.2.1"
+            git clone --depth 1 --branch v1.2.1 https://github.com/GraphBLAS/LAGraph.git
+            cmake -S LAGraph -B LAGraph/build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/usr/local
+            make -j$(nproc) -C LAGraph/build
+            sudo make -C LAGraph/build install
+            sudo ldconfig
           fi
-          echo "Found GraphBLAS at $GRAPHBLAS_DIR"
-          git clone --depth 1 https://github.com/GraphBLAS/LAGraph.git /tmp/LAGraph
-          mkdir -p /tmp/LAGraph/build
-          cmake -S /tmp/LAGraph -B /tmp/LAGraph/build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local
-          make -j$(nproc) -C /tmp/LAGraph/build
-          sudo make -C /tmp/LAGraph/build install
-          sudo ldconfig
 
       - name: Configure Debug
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
