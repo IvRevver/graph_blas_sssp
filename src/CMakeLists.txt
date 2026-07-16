@@ -22,6 +22,5 @@ target_link_options(sssp_algorithms PRIVATE
 target_link_libraries(sssp_algorithms PUBLIC
     GraphBLAS::GraphBLAS
     SuiteSparse::LAGraph
-    OpenMP::OpenMP_C
     m
 )

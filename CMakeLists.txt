@@ -15,7 +15,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 find_package(GraphBLAS REQUIRED)
 find_package(LAGraph CONFIG REQUIRED)
-find_package(OpenMP REQUIRED)
 
 enable_testing()
 
