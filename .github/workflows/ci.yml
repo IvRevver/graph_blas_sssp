@@ -65,13 +65,13 @@ jobs:
             echo "GraphBLAS already installed"
           elif [ -d "GraphBLAS" ] && [ -f "GraphBLAS/Makefile" ]; then
             echo "Building GraphBLAS from cached source"
-            make -j$(nproc) -C GraphBLAS
+            make -j$(nproc) -C GraphBLAS CC="ccache gcc"
             sudo make -C GraphBLAS install
             sudo ldconfig
           else
             echo "Cloning GraphBLAS v10.3.1"
             git clone --depth 1 --branch v10.3.1 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
-            make -j$(nproc) -C GraphBLAS
+            make -j$(nproc) -C GraphBLAS CC="ccache gcc"
             sudo make -C GraphBLAS install
             sudo ldconfig
           fi
@@ -84,7 +84,8 @@ jobs:
             echo "Building LAGraph from cached source"
             cmake -S LAGraph -B LAGraph/build \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/usr/local
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache
             make -j$(nproc) -C LAGraph/build
             sudo make -C LAGraph/build install
             sudo ldconfig
@@ -93,14 +94,15 @@ jobs:
             git clone --depth 1 --branch v1.2.1 https://github.com/GraphBLAS/LAGraph.git
             cmake -S LAGraph -B LAGraph/build \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/usr/local
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache
             make -j$(nproc) -C LAGraph/build
             sudo make -C LAGraph/build install
             sudo ldconfig
           fi
 
       - name: Configure Debug
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build -j$(nproc)
