@@ -37,6 +37,7 @@ typedef struct {
     GrB_Index source;
     double delta;
     int runs;
+    int warmup;
     bool full_bench;
 } BenchConfig;
 
@@ -116,22 +117,24 @@ static void write_raw_csv(const char *graph_name, const char *alg_name, const do
 
 
 static void print_usage(const char *prog) {
-    printf("Usage: %s <file.mtx> [source] [delta] [runs]\n", prog);
-    printf("       %s <file.mtx> -b [source] [runs]\n", prog);
+    printf("Usage: %s <file.mtx> [source] [delta] [runs] [-w N]\n", prog);
+    printf("       %s <file.mtx> -b [source] [runs] [-w N]\n", prog);
     printf("\n");
     printf("Arguments:\n");
     printf("  <file.mtx>    Path to graph in Matrix Market format\n");
     printf("  source        Source vertex (default: 0)\n");
     printf("  delta         Delta parameter for Delta-Stepping (default: 3.0)\n");
-    printf("  runs          Number of iterations for stats benchmark (default: 1)\n");
+    printf("  runs          Number of timed iterations (default: 1)\n");
     printf("  -b            Full benchmark: all deltas x all algorithms x runs\n");
+    printf("  -w N          Warmup iterations before timed runs (default: 1, 0 to disable)\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s graphs/test.mtx\n", prog);
     printf("  %s graphs/test.mtx 0 3.0\n", prog);
     printf("  %s graphs/test.mtx 0 3.0 30\n", prog);
+    printf("  %s graphs/test.mtx 0 3.0 30 -w 0\n", prog);
     printf("  %s graphs/astro-ph.mtx -b\n", prog);
-    printf("  %s graphs/astro-ph.mtx -b 0 30\n", prog);
+    printf("  %s graphs/astro-ph.mtx -b 0 30 -w 3\n", prog);
 }
 
 
@@ -292,7 +295,7 @@ static void print_stats_row(const char *name, double mean, double min, double ma
 }
 
 static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                                double delta, int runs) {
+                                double delta, int runs, int warmup) {
     double *times = malloc(runs * sizeof(double));
     if (!times) {
         fprintf(stderr, "[!] Out of memory for %d runs\n", runs);
@@ -321,6 +324,12 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
     for (int a = 0; a < nalgs; a++) {
         if (algs[a].skip_negative && graph_info->has_negative_weights) {
             continue;
+        }
+
+        for (int w = 0; w < warmup; w++) {
+            SSSP_Result r;
+            algs[a].func(&r, graph, source, algs[a].param);
+            sssp_result_cleanup(&r);
         }
 
         int valid = 0;
@@ -405,12 +414,18 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
 }
 
 static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Index, double),
-                          double param, LAGraph_Graph graph, GrB_Index source, int runs,
+                          double param, LAGraph_Graph graph, GrB_Index source, int runs, int warmup,
                           bool skip_negative, GraphInfo *graph_info, const char *graph_name,
                           const char *alg_name, double *out_mean, double *out_min, double *out_max,
                           double *out_std) {
     if (skip_negative && graph_info->has_negative_weights)
         return false;
+
+    for (int w = 0; w < warmup; w++) {
+        SSSP_Result r;
+        func(&r, graph, source, param);
+        sssp_result_cleanup(&r);
+    }
 
     double *times = malloc(runs * sizeof(double));
     if (!times)
@@ -457,7 +472,7 @@ static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Ind
 
 
 static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                               int runs) {
+                               int runs, int warmup) {
     const double deltas[] = {0.5, 1.0, 2.0, 3.0, 5.0, 10.0};
     int ndeltas = sizeof(deltas) / sizeof(deltas[0]);
 
@@ -468,8 +483,8 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
     for (int d = 0; d < ndeltas; d++) {
         if (d == 0) {
             double m, mn, mx, s;
-            if (compute_stats(algebraic_bf_graphblas, 0.0, graph, source, runs, false, graph_info,
-                              graph_info->name, "Algebraic BF", &m, &mn, &mx, &s)) {
+            if (compute_stats(algebraic_bf_graphblas, 0.0, graph, source, runs, warmup, false,
+                              graph_info, graph_info->name, "Algebraic BF", &m, &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Algebraic BF");
                 means[n] = m;
                 mins[n] = mn;
@@ -477,8 +492,8 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
                 stds[n] = s;
                 n++;
             }
-            if (compute_stats(dijkstra_graphblas, 0.0, graph, source, runs, true, graph_info,
-                              graph_info->name, "Dijkstra", &m, &mn, &mx, &s)) {
+            if (compute_stats(dijkstra_graphblas, 0.0, graph, source, runs, warmup, true,
+                              graph_info, graph_info->name, "Dijkstra", &m, &mn, &mx, &s)) {
                 snprintf(labels[n], sizeof(labels[n]), "Dijkstra");
                 means[n] = m;
                 mins[n] = mn;
@@ -491,7 +506,7 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
         char ds_label[64];
         snprintf(ds_label, sizeof(ds_label), "DS delta=%.1f", deltas[d]);
         double m, mn, mx, s;
-        if (compute_stats(lagraph_sssp, deltas[d], graph, source, runs, true, graph_info,
+        if (compute_stats(lagraph_sssp, deltas[d], graph, source, runs, warmup, true, graph_info,
                           graph_info->name, ds_label, &m, &mn, &mx, &s)) {
             snprintf(labels[n], sizeof(labels[n]), "%s", ds_label);
             means[n] = m;
@@ -531,6 +546,7 @@ static bool parse_args(int argc, char *argv[], BenchConfig *cfg) {
     cfg->source = 0;
     cfg->delta = 3.0;
     cfg->runs = 1;
+    cfg->warmup = 1;
     cfg->full_bench = false;
     int arg_idx = 2;
 
@@ -569,8 +585,20 @@ static bool parse_args(int argc, char *argv[], BenchConfig *cfg) {
         long runs_val = strtol(argv[arg_idx], &endptr, 10);
         if (*endptr == '\0' && runs_val >= 1) {
             cfg->runs = (int)runs_val;
+            arg_idx++;
         } else {
             fprintf(stderr, "[!] Invalid runs: %s, using 1\n", argv[arg_idx]);
+            arg_idx++;
+        }
+    }
+
+    if (argc > arg_idx + 1 && strcmp(argv[arg_idx], "-w") == 0) {
+        char *endptr;
+        long warmup_val = strtol(argv[arg_idx + 1], &endptr, 10);
+        if (*endptr == '\0' && warmup_val >= 0) {
+            cfg->warmup = (int)warmup_val;
+        } else {
+            fprintf(stderr, "[!] Invalid warmup: %s, using 1\n", argv[arg_idx + 1]);
         }
     }
 
@@ -609,9 +637,9 @@ static bool init_and_load(const char *graph_file, GrB_Index source, LAGraph_Grap
 
 
 static int run_full_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                               int runs);
+                               int runs, int warmup);
 static int run_stats_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                                double delta, int runs);
+                                double delta, int runs, int warmup);
 static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
                            double delta);
 
@@ -626,21 +654,22 @@ int main(int argc, char *argv[]) {
         return 1;
 
     if (cfg.full_bench)
-        return run_full_bench_mode(graph, &graph_info, cfg.source, cfg.runs);
+        return run_full_bench_mode(graph, &graph_info, cfg.source, cfg.runs, cfg.warmup);
 
     if (cfg.runs > 1)
-        return run_stats_bench_mode(graph, &graph_info, cfg.source, cfg.delta, cfg.runs);
+        return run_stats_bench_mode(graph, &graph_info, cfg.source, cfg.delta, cfg.runs,
+                                    cfg.warmup);
 
     return run_single_mode(graph, &graph_info, cfg.source, cfg.delta);
 }
 
 
 static int run_full_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                               int runs) {
+                               int runs, int warmup) {
     char msg[LAGRAPH_MSG_LEN];
     if (runs < 2)
         runs = 30;
-    run_full_benchmark(graph, graph_info, source, runs);
+    run_full_benchmark(graph, graph_info, source, runs, warmup);
     LAGraph_Delete(&graph, msg);
     LAGraph_Finalize(msg);
     return 0;
@@ -648,10 +677,10 @@ static int run_full_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
 
 
 static int run_stats_bench_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
-                                double delta, int runs) {
+                                double delta, int runs, int warmup) {
     char msg[LAGRAPH_MSG_LEN];
     print_benchmark_header(graph_info, source, delta);
-    run_stats_benchmark(graph, graph_info, source, delta, runs);
+    run_stats_benchmark(graph, graph_info, source, delta, runs, warmup);
     LAGraph_Delete(&graph, msg);
     LAGraph_Finalize(msg);
     return 0;
