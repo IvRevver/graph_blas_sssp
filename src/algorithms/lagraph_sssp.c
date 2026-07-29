@@ -35,6 +35,8 @@ GrB_Info lagraph_sssp(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source
         result->success = true;
         GrB_Vector_nvals(&result->reachable_vertices, result->distances);
         result->iterations = (int)ceil((double)n / delta);
+    } else {
+        fprintf(stderr, "[LAGraph] LAGr_SingleSourceShortestPath failed: %s\n", msg);
     }
 
     return info;

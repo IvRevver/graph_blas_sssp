@@ -263,8 +263,8 @@ static void test_timer(void) {
 
     timer_start();
 
-    volatile int sum = 0;
-    for (int i = 0; i < 1000000; i++) {
+    volatile unsigned sum = 0;
+    for (unsigned i = 0; i < 1000000; i++) {
         sum += i;
     }
 
