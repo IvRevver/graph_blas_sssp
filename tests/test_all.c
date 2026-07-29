@@ -301,6 +301,9 @@ int main(void) {
         return 1;
     }
 
+    LAGraph_Cached_EMin(graph, msg);
+    LAGraph_Cached_AT(graph, msg);
+
     printf("\nTest graph: %s\n", graph_info.name);
     printf("  Vertices: %llu\n", (unsigned long long)graph_info.nverts);
     printf("  Edges: %llu\n", (unsigned long long)graph_info.nedges);

@@ -23,11 +23,18 @@ GrB_Info lagraph_sssp(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source
     char msg[LAGRAPH_MSG_LEN];
 
     GrB_Scalar delta_scalar = NULL;
-    GrB_Scalar_new(&delta_scalar, GrB_FP64);
-    GrB_Scalar_setElement(delta_scalar, delta);
+    GrB_Info info = GrB_Scalar_new(&delta_scalar, GrB_FP64);
+    if (info != GrB_SUCCESS) {
+        return info;
+    }
 
-    GrB_Info info =
-        LAGr_SingleSourceShortestPath(&result->distances, graph, source, delta_scalar, msg);
+    info = GrB_Scalar_setElement_FP64(delta_scalar, delta);
+    if (info != GrB_SUCCESS) {
+        GrB_free(&delta_scalar);
+        return info;
+    }
+
+    info = LAGr_SingleSourceShortestPath(&result->distances, graph, source, delta_scalar, msg);
 
     GrB_free(&delta_scalar);
 
