@@ -26,6 +26,7 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
     GrB_Monoid min_monoid = NULL;
     GrB_Semiring minplus_semiring = NULL;
     GrB_Vector dtmp = NULL;
+    GrB_Vector improved = NULL;
     GrB_Info info;
 
     info = GrB_Vector_new(&result->distances, GrB_FP64, n);
@@ -51,26 +52,48 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
     if (info != GrB_SUCCESS)
         goto cleanup;
 
-    /* Основной цикл Bellman-Ford: n-1 итераций */
+    info = GrB_Vector_new(&improved, GrB_BOOL, n);
+    if (info != GrB_SUCCESS)
+        goto cleanup;
+
+    GrB_Index old_nvals;
+    GrB_Index new_nvals;
+
     for (GrB_Index k = 1; k < n; k++) {
         result->iterations = k;
 
-        /* dtmp = distances ⊗ A (min-plus векторно-матричное умножение) */
         info = GrB_vxm(dtmp, NULL, NULL, minplus_semiring, result->distances, graph->A, NULL);
         if (info != GrB_SUCCESS)
             break;
 
-        /* distances = min(distances, dtmp) — обновляем все улучшения одной операцией */
+        GrB_Index dtmp_nvals;
+        GrB_Vector_nvals(&dtmp_nvals, dtmp);
+        if (dtmp_nvals == 0)
+            break;
+
+        GrB_Vector_nvals(&old_nvals, result->distances);
+
+        GrB_eWiseMult(improved, NULL, NULL, GrB_LT_FP64, dtmp, result->distances, NULL);
+
         info = GrB_eWiseAdd(result->distances, NULL, NULL, GrB_MIN_FP64, result->distances, dtmp,
                             NULL);
         if (info != GrB_SUCCESS)
             break;
+
+        GrB_Vector_nvals(&new_nvals, result->distances);
+        if (new_nvals == old_nvals) {
+            bool any_improvement = false;
+            GrB_reduce(&any_improvement, NULL, GrB_LOR_MONOID_BOOL, improved, NULL);
+            if (!any_improvement)
+                break;
+        }
     }
 
     GrB_Vector_nvals(&result->reachable_vertices, result->distances);
     result->success = true;
 
 cleanup:
+    GrB_free(&improved);
     GrB_free(&dtmp);
     GrB_free(&minplus_semiring);
     GrB_free(&min_monoid);
