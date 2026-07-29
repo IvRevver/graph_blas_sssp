@@ -289,6 +289,8 @@ int main(void) {
         return 1;
     }
 
+    GxB_Global_Option_set_INT32(GxB_JIT_C_CONTROL, GxB_JIT_OFF);
+
     /* Загрузка тестового графа */
     LAGraph_Graph graph = NULL;
     GraphInfo graph_info;
@@ -302,7 +304,6 @@ int main(void) {
     }
 
     LAGraph_Cached_EMin(graph, msg);
-    LAGraph_Cached_AT(graph, msg);
 
     printf("\nTest graph: %s\n", graph_info.name);
     printf("  Vertices: %llu\n", (unsigned long long)graph_info.nverts);
