@@ -83,8 +83,8 @@ static void test_lagraph_sssp(LAGraph_Graph graph, GrB_Index source) {
     register_test("Has reachable vertices", result.reachable_vertices > 0, NULL);
 
     /* Проверка расстояния до источника */
-    register_test("dist[source] == 0",
-                  sssp_validate_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0", sssp_validate_source_distance(result.distances, source),
+                  NULL);
 
     register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 
@@ -106,8 +106,8 @@ static void test_algebraic_bf(LAGraph_Graph graph, GrB_Index source) {
     GrB_Matrix_nrows(&n, graph->A);
     register_test("Iterations < n", (GrB_Index)result.iterations < n, NULL);
 
-    register_test("dist[source] == 0",
-                  sssp_validate_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0", sssp_validate_source_distance(result.distances, source),
+                  NULL);
 
     register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 
@@ -125,8 +125,8 @@ static void test_dijkstra(LAGraph_Graph graph, GrB_Index source) {
     register_test("Success flag", result.success == true, NULL);
     register_test("Distances vector", result.distances != NULL, NULL);
 
-    register_test("dist[source] == 0",
-                  sssp_validate_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0", sssp_validate_source_distance(result.distances, source),
+                  NULL);
 
     register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 

@@ -220,9 +220,9 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
         bool is_visited;
         info = GrB_Vector_extractElement(&is_visited, visited, u);
         if (info == GrB_SUCCESS)
-            continue;                /* уже посещена */
+            continue; /* уже посещена */
         if (info != GrB_NO_VALUE)
-            break;                   /* реальная ошибка */
+            break; /* реальная ошибка */
 
         info = GrB_Vector_setElement(visited, true, u);
         if (info != GrB_SUCCESS)
