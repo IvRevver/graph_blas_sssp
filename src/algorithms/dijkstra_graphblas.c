@@ -9,7 +9,8 @@
  */
 
 #include "dijkstra_graphblas.h"
-#include <limits.h>
+#include <stdlib.h>
+#include <math.h>
 
 /**
  * @brief Простая приоритетная очередь (min-heap)
@@ -144,11 +145,10 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
         return GrB_NULL_POINTER;
     }
 
-    sssp_result_init(result, "Dijkstra (GraphBLAS)", "Raw GraphBLAS");
+    sssp_result_init(result, "Dijkstra (GraphBLAS)");
 
     GrB_Index n;
     GrB_Matrix_nrows(&n, graph->A);
-    result->vertices_processed = n;
 
     GrB_Vector visited = NULL;
     GrB_Monoid min_monoid = NULL;
@@ -220,7 +220,9 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
         bool is_visited;
         info = GrB_Vector_extractElement(&is_visited, visited, u);
         if (info == GrB_SUCCESS)
-            continue;
+            continue;                /* уже посещена */
+        if (info != GrB_NO_VALUE)
+            break;                   /* реальная ошибка */
 
         info = GrB_Vector_setElement(visited, true, u);
         if (info != GrB_SUCCESS)
@@ -261,8 +263,10 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
         }
     }
 
-    GrB_Vector_nvals(&result->reachable_vertices, result->distances);
-    result->success = true;
+    if (info == GrB_SUCCESS) {
+        GrB_Vector_nvals(&result->reachable_vertices, result->distances);
+        result->success = true;
+    }
 
 cleanup:
     free(idxs);

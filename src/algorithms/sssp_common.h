@@ -7,11 +7,7 @@
 #ifndef SSSP_COMMON_H
 #define SSSP_COMMON_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include "GraphBLAS.h"
 #include "LAGraph.h"
 
@@ -25,17 +21,15 @@ typedef struct {
     double time_ms;                /** Время выполнения (мс) */
     int iterations;                /** Количество итераций */
     bool success;                  /** Флаг успеха */
-    GrB_Index vertices_processed;  /** Обработано вершин */
     GrB_Index reachable_vertices;  /** Достижимо вершин */
     GrB_Vector distances;          /** Вектор расстояний */
     GrB_Vector predecessors;       /** Вектор предшественников */
-    const char *source_file;       /** Источник реализации */
 } SSSP_Result;
 
 /**
  * @brief Инициализация структуры результата
  */
-void sssp_result_init(SSSP_Result *result, const char *name, const char *source);
+void sssp_result_init(SSSP_Result *result, const char *name);
 
 /**
  * @brief Очистка ресурсов результата

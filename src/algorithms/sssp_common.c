@@ -4,8 +4,9 @@
  */
 
 #include "sssp_common.h"
+#include <string.h>
 
-void sssp_result_init(SSSP_Result *result, const char *name, const char *source) {
+void sssp_result_init(SSSP_Result *result, const char *name) {
     if (!result)
         return;
 
@@ -15,8 +16,6 @@ void sssp_result_init(SSSP_Result *result, const char *name, const char *source)
         strncpy(result->name, name, ALGORITHM_NAME_MAX - 1);
         result->name[ALGORITHM_NAME_MAX - 1] = '\0';
     }
-
-    result->source_file = source;
 }
 
 void sssp_result_cleanup(SSSP_Result *result) {

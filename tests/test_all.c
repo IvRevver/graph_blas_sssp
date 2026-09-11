@@ -1,8 +1,5 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
-#include <math.h>
-#include <string.h>
 
 #include "GraphBLAS.h"
 #include "LAGraph.h"
@@ -16,7 +13,6 @@
 #include "utils/validator.h"
 
 #define TEST_GRAPH_PATH "tests/test_graph.mtx"
-#define EPSILON 1e-6
 #define MAX_TESTS 64
 
 typedef struct {
@@ -55,85 +51,6 @@ static void register_test(const char *name, bool passed, const char *message) {
     }
 }
 
-static bool compare_distances(GrB_Vector v1, GrB_Vector v2) {
-    if (!v1 || !v2) {
-        return false;
-    }
-
-    GrB_Index n1, n2;
-    GrB_Vector_size(&n1, v1);
-    GrB_Vector_size(&n2, v2);
-
-    if (n1 != n2) {
-        return false;
-    }
-
-    for (GrB_Index i = 0; i < n1; i++) {
-        double d1, d2;
-        GrB_Info info1 = GrB_Vector_extractElement(&d1, v1, i);
-        GrB_Info info2 = GrB_Vector_extractElement(&d2, v2, i);
-
-        /* Оба должны иметь значение или оба не иметь */
-        if (info1 != info2) {
-            return false;
-        }
-
-        /* Если оба имеют значение - сравниваем */
-        if (info1 == GrB_SUCCESS) {
-            /* Оба INF */
-            if (isinf(d1) && isinf(d2)) {
-                continue;
-            }
-
-            /* Один INF, другой нет */
-            if (isinf(d1) || isinf(d2)) {
-                return false;
-            }
-
-            /* Оба конечные - сравниваем с погрешностью */
-            if (fabs(d1 - d2) > EPSILON) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-
-static bool verify_source_distance(GrB_Vector distances, GrB_Index source) {
-    if (!distances) {
-        return false;
-    }
-
-    double source_dist;
-    GrB_Info info = GrB_Vector_extractElement(&source_dist, distances, source);
-
-    return (info == GrB_SUCCESS && source_dist == 0.0);
-}
-
-static bool verify_non_negative(GrB_Vector distances) {
-    if (!distances) {
-        return false;
-    }
-
-    GrB_Index n;
-    GrB_Vector_size(&n, distances);
-
-    for (GrB_Index i = 0; i < n; i++) {
-        double dist;
-        GrB_Info info = GrB_Vector_extractElement(&dist, distances, i);
-
-        if (info == GrB_SUCCESS) {
-            if (dist < 0.0 && !isinf(dist)) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
 static void test_graph_loading(LAGraph_Graph graph, GraphInfo *info) {
     printf("\n[Test] Graph loading\n");
 
@@ -166,9 +83,10 @@ static void test_lagraph_sssp(LAGraph_Graph graph, GrB_Index source) {
     register_test("Has reachable vertices", result.reachable_vertices > 0, NULL);
 
     /* Проверка расстояния до источника */
-    register_test("dist[source] == 0", verify_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0",
+                  sssp_validate_source_distance(result.distances, source), NULL);
 
-    register_test("All distances >= 0", verify_non_negative(result.distances), NULL);
+    register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 
     sssp_result_cleanup(&result);
 }
@@ -188,9 +106,10 @@ static void test_algebraic_bf(LAGraph_Graph graph, GrB_Index source) {
     GrB_Matrix_nrows(&n, graph->A);
     register_test("Iterations < n", (GrB_Index)result.iterations < n, NULL);
 
-    register_test("dist[source] == 0", verify_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0",
+                  sssp_validate_source_distance(result.distances, source), NULL);
 
-    register_test("All distances >= 0", verify_non_negative(result.distances), NULL);
+    register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 
     sssp_result_cleanup(&result);
 }
@@ -206,9 +125,10 @@ static void test_dijkstra(LAGraph_Graph graph, GrB_Index source) {
     register_test("Success flag", result.success == true, NULL);
     register_test("Distances vector", result.distances != NULL, NULL);
 
-    register_test("dist[source] == 0", verify_source_distance(result.distances, source), NULL);
+    register_test("dist[source] == 0",
+                  sssp_validate_source_distance(result.distances, source), NULL);
 
-    register_test("All distances >= 0", verify_non_negative(result.distances), NULL);
+    register_test("All distances >= 0", sssp_validate_non_negative(result.distances), NULL);
 
     sssp_result_cleanup(&result);
 }
@@ -224,7 +144,7 @@ static void test_consistency(LAGraph_Graph graph, GrB_Index source) {
 
     /* Сравнение с Dijkstra */
     dijkstra_graphblas(&alg, graph, source, 0.0);
-    register_test("Algebraic BF == Dijkstra", compare_distances(ref.distances, alg.distances),
+    register_test("Algebraic BF == Dijkstra", sssp_validate_distances(ref.distances, alg.distances),
                   NULL);
     sssp_result_cleanup(&alg);
 
@@ -270,7 +190,7 @@ static void test_timer(void) {
 
     double elapsed_ms = timer_stop_ms();
 
-    register_test("timer_stop_ms > 0", elapsed_ms >= 0, /* Может быть 0 если очень быстро */
+    register_test("timer_stop_ms >= 0", elapsed_ms >= 0, /* Может быть 0 если очень быстро */
                   NULL);
 
     (void)sum; /* Подавить предупреждение */

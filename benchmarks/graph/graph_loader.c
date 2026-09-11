@@ -15,7 +15,6 @@
 
 #include "graph_loader.h"
 #include <sys/stat.h>
-#include <ctype.h>
 #include <errno.h>
 
 /**
@@ -215,7 +214,6 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
 
     /* Инициализация структуры info */
     memset(info, 0, sizeof(GraphInfo));
-    strncpy(info->path, filename, MAX_FILENAME - 1);
 
     /* Извлечение имени графа */
     GrB_Info info_grb = graph_extract_name(filename, info->name, MAX_GRAPH_NAME);
@@ -285,7 +283,6 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
     }
 
     info->nverts = nrows;
-    info->nedges = nentries;
 
     /* Предупреждение о большом графе */
     if (nentries > LARGE_GRAPH_THRESHOLD) {
@@ -330,12 +327,19 @@ GrB_Info graph_load(LAGraph_Graph *graph, const char *filename, GraphInfo *info)
         double value = 1.0;
 
         int parsed = sscanf(line, "%lld %lld %lf", &row_l, &col_l, &value);
-        GrB_Index row = (GrB_Index)row_l;
-        GrB_Index col = (GrB_Index)col_l;
 
         if (parsed < 2) {
             continue; /* Пропустить некорректную строку */
         }
+
+        if (row_l < 1 || (unsigned long long)row_l > nrows || col_l < 1 ||
+            (unsigned long long)col_l > nrows) {
+            fprintf(stderr, "[!] Skipping out-of-range edge (%lld, %lld)\n", row_l, col_l);
+            continue;
+        }
+
+        GrB_Index row = (GrB_Index)row_l;
+        GrB_Index col = (GrB_Index)col_l;
 
         if (parsed == 3) {
             has_weights = true;

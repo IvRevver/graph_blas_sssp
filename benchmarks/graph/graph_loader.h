@@ -15,16 +15,10 @@
 #ifndef GRAPH_LOADER_H
 #define GRAPH_LOADER_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include "GraphBLAS.h"
 #include "LAGraph.h"
-
-/**
- * @brief Максимальная длина пути к файлу
- */
-#define MAX_FILENAME 512
 
 /**
  * @brief Максимальная длина имени графа
@@ -36,7 +30,6 @@
  */
 typedef struct {
     char name[MAX_GRAPH_NAME]; /** Имя графа (из имени файла) */
-    char path[MAX_FILENAME];   /** Полный путь к файлу */
     GrB_Index nverts;          /** Количество вершин */
     GrB_Index nedges;          /** Количество рёбер */
     bool directed; /** true = ориентированный, false = неориентированный */

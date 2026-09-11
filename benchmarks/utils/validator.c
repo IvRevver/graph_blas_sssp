@@ -3,11 +3,9 @@
 #include <stdio.h>
 #include <float.h>
 
-
 static bool is_infinite(double value) {
     return isinf(value) || (value >= DBL_MAX / 2);
 }
-
 
 static bool float_equal(double a, double b, double epsilon) {
     /* Оба бесконечные - считаются равными */
@@ -23,7 +21,6 @@ static bool float_equal(double a, double b, double epsilon) {
     /* Сравнение с погрешностью */
     return fabs(a - b) < epsilon;
 }
-
 
 bool sssp_validate_source_distance(GrB_Vector distances, GrB_Index source) {
     /* Проверка входных параметров */
