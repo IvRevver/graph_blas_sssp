@@ -154,6 +154,10 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
     GrB_Monoid min_monoid = NULL;
     GrB_Semiring minplus_semiring = NULL;
     PriorityQueue *pq = NULL;
+    GrB_Vector u_mask = NULL;
+    GrB_Vector d_neighbors = NULL;
+    GrB_Index *idxs = NULL;
+    double *weights = NULL;
     GrB_Info info;
 
     info = GrB_Vector_new(&result->distances, GrB_FP64, n);
@@ -190,8 +194,6 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
     result->iterations = 0;
 
     /* Переиспользуемые векторы (создаём один раз, чистим на каждой итерации) */
-    GrB_Vector u_mask = NULL;
-    GrB_Vector d_neighbors = NULL;
     info = GrB_Vector_new(&u_mask, GrB_FP64, n);
     if (info != GrB_SUCCESS)
         goto cleanup;
@@ -199,15 +201,8 @@ GrB_Info dijkstra_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index 
     if (info != GrB_SUCCESS)
         goto cleanup;
 
-    /* Массивы для extractTuples (макс. размер = n) */
-    GrB_Index *idxs = NULL;
-    double *weights = NULL;
     idxs = malloc(sizeof(GrB_Index) * n);
     weights = malloc(sizeof(double) * n);
-    if (!idxs || !weights) {
-        info = GrB_OUT_OF_MEMORY;
-        goto cleanup;
-    }
     if (!idxs || !weights) {
         info = GrB_OUT_OF_MEMORY;
         goto cleanup;

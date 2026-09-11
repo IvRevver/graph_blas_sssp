@@ -17,11 +17,6 @@ void sssp_result_init(SSSP_Result *result, const char *name, const char *source)
     }
 
     result->source_file = source;
-    result->time_ms = 0.0;
-    result->iterations = 0;
-    result->success = false;
-    result->distances = NULL;
-    result->predecessors = NULL;
 }
 
 void sssp_result_cleanup(SSSP_Result *result) {
@@ -37,13 +32,4 @@ void sssp_result_cleanup(SSSP_Result *result) {
         GrB_free(&result->predecessors);
         result->predecessors = NULL;
     }
-}
-
-SSSP_Config sssp_config_default(void) {
-    SSSP_Config config;
-    config.source = 0;
-    config.delta = 3.0;
-    config.max_iterations = 0;
-    config.verbosity = 1;
-    return config;
 }

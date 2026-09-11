@@ -289,6 +289,8 @@ int main(void) {
         return 1;
     }
 
+    /* Disable JIT: LAGraph SSSP triggers GrB_select/assign kernels that
+       fail with GxB_JIT_ERROR (-7001) on CI. Pre-compiled kernels suffice. */
     GxB_Global_Option_set_INT32(GxB_JIT_C_CONTROL, GxB_JIT_OFF);
 
     /* Загрузка тестового графа */

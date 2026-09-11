@@ -65,13 +65,6 @@ GrB_Info graph_extract_name(const char *filename, char *name, size_t name_size) 
     return GrB_SUCCESS;
 }
 
-void graph_info_cleanup(GraphInfo *info) {
-    if (!info)
-        return;
-    /* В текущей реализации динамическая память не выделяется */
-    memset(info, 0, sizeof(GraphInfo));
-}
-
 /* ==========================================================================
  *                      Парсинг заголовка Matrix Market
  * ========================================================================== */

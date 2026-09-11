@@ -76,11 +76,4 @@ GrB_Info graph_extract_name(const char *filename, char *name, size_t name_size);
  */
 bool graph_file_exists(const char *filename);
 
-/**
- * @brief Очистить ресурсы GraphInfo
- *
- * @param info Структура для очистки
- */
-void graph_info_cleanup(GraphInfo *info);
-
 #endif /* GRAPH_LOADER_H */

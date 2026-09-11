@@ -104,18 +104,27 @@ bool sssp_validate_distances(GrB_Vector v1, GrB_Vector v2) {
         GrB_Info info_d1 = GrB_Vector_extractElement(&d1, v1, i);
         GrB_Info info_d2 = GrB_Vector_extractElement(&d2, v2, i);
 
-        /*
-         * Оба элемента должны либо существовать, либо отсутствовать
-         */
-        if (info_d1 != info_d2) {
-            return false;
+        /* Оба отсутствуют — OK */
+        if (info_d1 != GrB_SUCCESS && info_d2 != GrB_SUCCESS) {
+            continue;
         }
 
-        /* Если оба существуют - сравниваем значения */
-        if (info_d1 == GrB_SUCCESS) {
-            if (!float_equal(d1, d2, VALIDATOR_EPSILON)) {
+        /* Один существует, другой нет — допустимо если существующий == INFINITY
+           (недостижимая вершина, просто записана явно) */
+        if (info_d1 != GrB_SUCCESS) {
+            if (!is_infinite(d2))
                 return false;
-            }
+            continue;
+        }
+        if (info_d2 != GrB_SUCCESS) {
+            if (!is_infinite(d1))
+                return false;
+            continue;
+        }
+
+        /* Оба существуют - сравниваем значения */
+        if (!float_equal(d1, d2, VALIDATOR_EPSILON)) {
+            return false;
         }
     }
 
@@ -162,41 +171,4 @@ bool sssp_validate_result(SSSP_Result *result, GrB_Index source) {
     }
 
     return valid;
-}
-
-void sssp_print_validation_report(SSSP_Result *result, GrB_Index source, FILE *stream) {
-    if (!result || !stream) {
-        return;
-    }
-
-    fprintf(stream, "\n");
-    fprintf(stream, "====================================================\n");
-    fprintf(stream, "Validation report for: %s\n", result->name);
-    fprintf(stream, "====================================================\n");
-
-    fprintf(stream, "  Status: %s\n", result->success ? "[OK] Success" : "[FAIL] Error");
-
-    if (!result->success) {
-        fprintf(stream, "\n  [!] Algorithm did not execute, skipping checks\n");
-        return;
-    }
-
-    /* Статистика */
-    fprintf(stream, "  Время выполнения: %.2f мс\n", result->time_ms);
-    fprintf(stream, "  Iterations: %d\n", result->iterations);
-    fprintf(stream, "  Reachable vertices: %llu\n", (unsigned long long)result->reachable_vertices);
-
-    fprintf(stream, "\n  Checks:\n");
-
-    bool check1 = sssp_validate_source_distance(result->distances, source);
-    fprintf(stream, "    dist[source] == 0: %s\n", check1 ? "[OK]" : "[FAIL]");
-
-    bool check2 = sssp_validate_non_negative(result->distances);
-    fprintf(stream, "    All dist >= 0: %s\n", check2 ? "[OK]" : "[FAIL]");
-
-    bool check3 = (result->reachable_vertices > 0);
-    fprintf(stream, "    reachable_vertices > 0: %s\n", check3 ? "[OK]" : "[FAIL]");
-
-    fprintf(stream, "\n  Result: %s\n",
-            (check1 && check2 && check3) ? "[OK] All checks passed" : "[FAIL] Checks not passed");
 }

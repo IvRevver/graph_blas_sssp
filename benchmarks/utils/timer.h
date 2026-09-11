@@ -7,6 +7,4 @@ void timer_start(void);
 
 double timer_stop_ms(void);
 
-double timer_stop_sec(void);
-
 #endif
