@@ -8,6 +8,7 @@
  */
 
 #include "algebraic_bf_graphblas.h"
+#include <math.h>
 
 GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source,
                                 double delta) {
@@ -17,11 +18,10 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
         return GrB_NULL_POINTER;
     }
 
-    sssp_result_init(result, "Algebraic BF (GraphBLAS)", "Raw GraphBLAS");
+    sssp_result_init(result, "Algebraic BF (GraphBLAS)");
 
     GrB_Index n;
     GrB_Matrix_nrows(&n, graph->A);
-    result->vertices_processed = n;
 
     GrB_Monoid min_monoid = NULL;
     GrB_Semiring minplus_semiring = NULL;
@@ -89,8 +89,10 @@ GrB_Info algebraic_bf_graphblas(SSSP_Result *result, LAGraph_Graph graph, GrB_In
         }
     }
 
-    GrB_Vector_nvals(&result->reachable_vertices, result->distances);
-    result->success = true;
+    if (info == GrB_SUCCESS) {
+        GrB_Vector_nvals(&result->reachable_vertices, result->distances);
+        result->success = true;
+    }
 
 cleanup:
     GrB_free(&improved);

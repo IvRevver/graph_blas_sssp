@@ -15,16 +15,10 @@
 #ifndef GRAPH_LOADER_H
 #define GRAPH_LOADER_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include "GraphBLAS.h"
 #include "LAGraph.h"
-
-/**
- * @brief Максимальная длина пути к файлу
- */
-#define MAX_FILENAME 512
 
 /**
  * @brief Максимальная длина имени графа
@@ -36,7 +30,6 @@
  */
 typedef struct {
     char name[MAX_GRAPH_NAME]; /** Имя графа (из имени файла) */
-    char path[MAX_FILENAME];   /** Полный путь к файлу */
     GrB_Index nverts;          /** Количество вершин */
     GrB_Index nedges;          /** Количество рёбер */
     bool directed; /** true = ориентированный, false = неориентированный */
@@ -75,12 +68,5 @@ GrB_Info graph_extract_name(const char *filename, char *name, size_t name_size);
  * @return true если файл существует и доступен для чтения
  */
 bool graph_file_exists(const char *filename);
-
-/**
- * @brief Очистить ресурсы GraphInfo
- *
- * @param info Структура для очистки
- */
-void graph_info_cleanup(GraphInfo *info);
 
 #endif /* GRAPH_LOADER_H */

@@ -4,6 +4,7 @@
  */
 
 #include "lagraph_sssp.h"
+#include <stdio.h>
 
 GrB_Info lagraph_sssp(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source, double delta) {
     if (!result || !graph) {
@@ -14,11 +15,7 @@ GrB_Info lagraph_sssp(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source
         return GrB_INVALID_VALUE;
     }
 
-    sssp_result_init(result, "Delta-Stepping (LAGraph)", "LAGraph stable");
-
-    GrB_Index n;
-    GrB_Matrix_nrows(&n, graph->A);
-    result->vertices_processed = n;
+    sssp_result_init(result, "Delta-Stepping (LAGraph)");
 
     char msg[LAGRAPH_MSG_LEN];
 
@@ -41,7 +38,6 @@ GrB_Info lagraph_sssp(SSSP_Result *result, LAGraph_Graph graph, GrB_Index source
     if (info == GrB_SUCCESS) {
         result->success = true;
         GrB_Vector_nvals(&result->reachable_vertices, result->distances);
-        result->iterations = (int)ceil((double)n / delta);
     } else {
         fprintf(stderr, "[LAGraph] LAGr_SingleSourceShortestPath failed: %s\n", msg);
     }

@@ -27,8 +27,6 @@
 
 #define MAX_ALGORITHMS 3
 
-#define DISTANCE_EPSILON 1e-6
-
 #define CSV_DIR "results"
 
 
@@ -165,13 +163,7 @@ static void print_results(SSSP_Result results[], int count) {
     printf("+----------------------------+--------------+------------------+\n");
 
     for (int i = 0; i < count; i++) {
-        char status[20];
-
-        if (results[i].success) {
-            snprintf(status, sizeof(status), "%s", "OK");
-        } else {
-            snprintf(status, sizeof(status), "%s", "FAIL");
-        }
+        const char *status = results[i].success ? "OK" : "FAIL";
 
         double time_ms = results[i].success ? results[i].time_ms : 0.0;
 
@@ -271,7 +263,6 @@ static void print_speedup(SSSP_Result results[], int count, int best_idx) {
 
         double speedup = results[i].time_ms / best_time;
 
-        char line[256];
         if (i == best_idx) {
             snprintf(line, sizeof(line), "%-28.63s %s %8.2fx  (fastest)", results[i].name, "|",
                      speedup);
@@ -294,13 +285,15 @@ static void print_stats_row(const char *name, double mean, double min, double ma
     printf("| %-20s | %8.2f | %8.2f | %8.2f | %8.2f |\n", name, mean, min, max, std);
 }
 
+static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Index, double),
+                          double param, LAGraph_Graph graph, GrB_Index source, int runs, int warmup,
+                          bool skip_negative, GraphInfo *graph_info, const char *graph_name,
+                          const char *alg_name, double *out_mean, double *out_min, double *out_max,
+                          double *out_std);
+
 static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index source,
                                 double delta, int runs, int warmup) {
-    double *times = malloc(runs * sizeof(double));
-    if (!times) {
-        fprintf(stderr, "[!] Out of memory for %d runs\n", runs);
-        return;
-    }
+    ensure_results_dir();
 
     typedef GrB_Info (*AlgFunc)(SSSP_Result *, LAGraph_Graph, GrB_Index, double);
 
@@ -322,59 +315,14 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
     int count = 0;
 
     for (int a = 0; a < nalgs; a++) {
-        if (algs[a].skip_negative && graph_info->has_negative_weights) {
-            continue;
-        }
-
-        for (int w = 0; w < warmup; w++) {
-            SSSP_Result r;
-            algs[a].func(&r, graph, source, algs[a].param);
-            sssp_result_cleanup(&r);
-        }
-
-        int valid = 0;
-        for (int i = 0; i < runs; i++) {
-            SSSP_Result result;
-            timer_start();
-            GrB_Info info = algs[a].func(&result, graph, source, algs[a].param);
-            double t = timer_stop_ms();
-            if (info == GrB_SUCCESS) {
-                times[valid++] = t;
-            }
-            sssp_result_cleanup(&result);
-        }
-
-        succeeded[count] = (valid > 0);
-
-        if (valid >= 1) {
-            double sum = 0, mn = times[0], mx = times[0];
-            for (int i = 0; i < valid; i++) {
-                sum += times[i];
-                if (times[i] < mn)
-                    mn = times[i];
-                if (times[i] > mx)
-                    mx = times[i];
-            }
-            double mean = sum / valid;
-            double sq = 0;
-            for (int i = 0; i < valid; i++) {
-                double d = times[i] - mean;
-                sq += d * d;
-            }
-            double std = sqrt(sq / valid);
-
-            means[count] = mean;
-            mins[count] = mn;
-            maxs[count] = mx;
-            stds[count] = std;
-        } else {
-            means[count] = mins[count] = maxs[count] = stds[count] = 0.0;
-        }
-
-        if (valid > 0) {
-            write_raw_csv(graph_info->name, algs[a].name, times, valid);
-        }
-
+        double m, mn, mx, s;
+        succeeded[count] = compute_stats(algs[a].func, algs[a].param, graph, source, runs, warmup,
+                                         algs[a].skip_negative, graph_info, graph_info->name,
+                                         algs[a].name, &m, &mn, &mx, &s);
+        means[count] = m;
+        mins[count] = mn;
+        maxs[count] = mx;
+        stds[count] = s;
         names[count] = algs[a].name;
         count++;
     }
@@ -390,7 +338,6 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
     }
     printf("+---------------------+----------+----------+----------+----------+\n");
 
-    ensure_results_dir();
     {
         const char *csv_names[16];
         double csv_means[16], csv_mins[16], csv_maxs[16], csv_stds[16];
@@ -409,8 +356,6 @@ static void run_stats_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_
             write_csv_table(graph_info->name, csv_names, csv_means, csv_mins, csv_maxs, csv_stds,
                             csv_count);
     }
-
-    free(times);
 }
 
 static bool compute_stats(GrB_Info (*func)(SSSP_Result *, LAGraph_Graph, GrB_Index, double),
@@ -480,6 +425,8 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
     double means[20], mins[20], maxs[20], stds[20];
     int n = 0;
 
+    ensure_results_dir();
+
     for (int d = 0; d < ndeltas; d++) {
         if (d == 0) {
             double m, mn, mx, s;
@@ -531,7 +478,6 @@ static void run_full_benchmark(LAGraph_Graph graph, GraphInfo *graph_info, GrB_I
     const char *alg_names[20];
     for (int i = 0; i < n; i++)
         alg_names[i] = labels[i];
-    ensure_results_dir();
     write_csv_table(graph_info->name, alg_names, means, mins, maxs, stds, n);
 }
 
@@ -697,6 +643,8 @@ static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index
     int step = 1;
     GrB_Info info;
 
+    ensure_results_dir();
+
     if (graph_info->has_negative_weights) {
         printf(
             "\n[!] Graph has negative weights — skipping Delta-Stepping (LAGraph) and Dijkstra\n");
@@ -769,7 +717,6 @@ static int run_single_mode(LAGraph_Graph graph, GraphInfo *graph_info, GrB_Index
             stds[csv_count] = 0.0;
             csv_count++;
         }
-        ensure_results_dir();
         write_csv_table(graph_info->name, names, means, mins, maxs, stds, csv_count);
     }
 
